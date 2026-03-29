@@ -1,8 +1,8 @@
 {
-  "name": "infra",
+  "name": "backend",
   "version": "0.1.0",
   "bin": {
-    "infra": "bin/infra.js"
+    "backend": "bin/backend.js"
   },
   "scripts": {
     "build": "tsc",
@@ -15,7 +15,7 @@
     "@types/node": "^24.10.1",
     "jest": "^30",
     "ts-jest": "^29",
-    "aws-cdk": "2.1113.0",
+    "aws-cdk": "2.1114.1",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.3"
   },
