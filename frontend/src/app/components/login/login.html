@@ -1,0 +1,23 @@
+<div class="centered-container">
+    <div class="login-card">
+    <h2 id="form-title">{{ formTitle }}</h2>
+
+    <div class="switch-container">
+        <button class="switch-btn" [class.active]="mode === 'dipendenti'" (click)="setMode('dipendenti')">Dipendenti</button>
+        <button class="switch-btn" [class.active]="mode === 'stazioni'" (click)="setMode('stazioni')">Stazioni</button>
+    </div>
+
+        <form [formGroup]="form" (ngSubmit)="login()" id="loginForm" autocomplete="off">
+            <div class="form-group">
+                <input type="text" id="userInput" formControlName="user" [placeholder]="userPlaceholder" required>
+            </div>
+            <div class="form-group">
+                <input type="password" id="passInput" formControlName="password" placeholder="Password" required>
+            </div>
+            <button type="submit" class="btn-login">Accedi</button>
+            <button type="button" *ngIf="mode === 'dipendenti'" class="btn-forgot" (click)="resetPassword()">Recupera password</button>
+            <div class="error" *ngIf="loginError">{{ loginError }}</div>
+        </form>
+    </div>
+</div>
+
