@@ -38,9 +38,7 @@ export class AuthService {
         }
     }
 
-    /**
-     * Recupera i dati dell'utente e i gruppi dai token
-     */
+    // Recupera i dati dell'utente e i gruppi dai token
     async checkCurrentSession() {
         try {
             const session = await fetchAuthSession();

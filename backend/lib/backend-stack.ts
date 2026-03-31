@@ -24,8 +24,15 @@ export class BackendStack extends cdk.Stack {
       },
     });
 
-    // Permessi IAM: la Lambda può creare utenti e assegnarli a gruppi su Cognito
-    cognito.userPool.grant(usersHandler, 'cognito-idp:AdminCreateUser', 'cognito-idp:AdminAddUserToGroup');
+    // Permessi IAM: tutte le operazioni CRUD sugli utenti Cognito
+    cognito.userPool.grant(usersHandler,
+      'cognito-idp:AdminCreateUser',
+      'cognito-idp:AdminAddUserToGroup',
+      'cognito-idp:ListUsers',
+      'cognito-idp:AdminGetUser',
+      'cognito-idp:AdminUpdateUserAttributes',
+      'cognito-idp:AdminDeleteUser',
+    );
 
     // API Gateway
     const api = new ApiConfig(this, 'Api', { userPool: cognito.userPool });

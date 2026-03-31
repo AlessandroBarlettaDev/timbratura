@@ -38,14 +38,18 @@ export class ApiConfig extends Construct {
 
   // Aggiunge tutte le rotte /users protette, collegate alla stessa lambda
   public addUsersRoutes(handler: lambda.IFunction) {
-    const users = this.api.root.addResource('users');
     const opts = {
       authorizer: this.authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     };
-    users.addMethod('POST',   new apigateway.LambdaIntegration(handler), opts); // Crea dipendente
-    users.addMethod('GET',    new apigateway.LambdaIntegration(handler), opts); // Lista dipendenti
-    users.addMethod('PUT',    new apigateway.LambdaIntegration(handler), opts); // Modifica dipendente
-    users.addMethod('DELETE', new apigateway.LambdaIntegration(handler), opts); // Elimina dipendente
+
+    const users = this.api.root.addResource('users');
+    users.addMethod('POST', new apigateway.LambdaIntegration(handler), opts); // Crea dipendente
+    users.addMethod('GET',  new apigateway.LambdaIntegration(handler), opts); // Lista dipendenti
+
+    const user = users.addResource('{id}');
+    user.addMethod('GET',    new apigateway.LambdaIntegration(handler), opts); // Dettaglio dipendente
+    user.addMethod('PUT',    new apigateway.LambdaIntegration(handler), opts); // Modifica dipendente
+    user.addMethod('DELETE', new apigateway.LambdaIntegration(handler), opts); // Elimina dipendente
   }
 }
