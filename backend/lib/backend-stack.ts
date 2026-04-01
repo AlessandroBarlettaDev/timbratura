@@ -4,6 +4,7 @@ import { ApiConfig } from './config/api';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { UserPoolOperation } from 'aws-cdk-lib/aws-cognito';
 import * as path from 'path';
 
 export class BackendStack extends cdk.Stack {
@@ -33,6 +34,14 @@ export class BackendStack extends cdk.Stack {
       'cognito-idp:AdminUpdateUserAttributes',
       'cognito-idp:AdminDeleteUser',
     );
+
+    // Lambda trigger — personalizza l'email di benvenuto inviata da Cognito
+    const customMessageHandler = new NodejsFunction(this, 'CustomMessageHandler', {
+      runtime: Runtime.NODEJS_22_X,
+      entry: path.join(__dirname, 'lambda/custom-message.ts'),
+      handler: 'handler',
+    });
+    cognito.userPool.addTrigger(UserPoolOperation.CUSTOM_MESSAGE, customMessageHandler);
 
     // API Gateway
     const api = new ApiConfig(this, 'Api', { userPool: cognito.userPool });

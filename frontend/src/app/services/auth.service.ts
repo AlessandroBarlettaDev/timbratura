@@ -6,6 +6,7 @@ export class AuthService {
     // Usiamo i Signals per rendere i dati reattivi nei componenti
     currentUser = signal<any>(null);
     userGroups = signal<string[]>([]);
+    utente = signal<{ nome: string; cognome: string; email: string } | null>(null);
 
     constructor() {
         // Controlla la sessione all'avvio dell'app
@@ -46,14 +47,22 @@ export class AuthService {
 
             if (session.tokens) {
                 this.currentUser.set(user);
-                
+
                 // Estraiamo i gruppi dai claim del token ID
-                const groups = session.tokens.idToken?.payload['cognito:groups'] as string[];
-                this.userGroups.set(groups || []);
+                const payload = session.tokens.idToken?.payload;
+                this.userGroups.set((payload?.['cognito:groups'] as string[]) || []);
+
+                // Estraiamo nome, cognome ed email dal token — disponibili ovunque nell'app
+                this.utente.set({
+                    nome:    payload?.['given_name']  as string ?? '',
+                    cognome: payload?.['family_name'] as string ?? '',
+                    email:   payload?.['email']       as string ?? '',
+                });
             }
         } catch (err) {
             this.currentUser.set(null);
             this.userGroups.set([]);
+            this.utente.set(null);
         }
     }
 
@@ -85,6 +94,7 @@ export class AuthService {
         await signOut();
         this.currentUser.set(null);
         this.userGroups.set([]);
+        this.utente.set(null);
         window.location.href = '/login';
     }
 }

@@ -7,7 +7,6 @@ import {
   AdminUpdateUserAttributesCommand,
   AdminDeleteUserCommand,
   ListUsersCommand,
-  MessageActionType,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { getJwtClaims, isManagerClaims } from './auth';
 import { cognitoErrorToHttp } from './errors';
@@ -18,6 +17,11 @@ const USER_POOL_ID = process.env.USER_POOL_ID!;
 // Punto di ingresso — API Gateway chiama questa funzione per ogni richiesta su /users
 export const handler = async (event: APIGatewayProxyEvent) => {
   const claims = getJwtClaims(event);
+
+  // Rotta accessibile a qualsiasi utente autenticato (non solo manager)
+  if (event.httpMethod === 'POST' && event.resource === '/users/password-changed') {
+    return await markPasswordChanged(claims);
+  }
 
   if (!isManagerClaims(claims)) return json(403, 'Accesso negato');
 
@@ -36,11 +40,13 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 async function createEmployee(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { email, nome, cognome, birthdate, codice_fiscale, data_assunzione, termine_contratto } = JSON.parse(event.body);
+  const { email, nome, cognome, birthdate, codice_fiscale, data_assunzione, termine_contratto, ruolo } = JSON.parse(event.body);
 
   if (!email || !nome || !cognome) {
     return json(400, 'Campi obbligatori mancanti: email, nome, cognome');
   }
+
+  const groupName = ruolo === 'manager' ? 'manager' : 'employee';
 
   const tempPassword = `Tmp_${Math.random().toString(36).slice(2, 10)}!A1`;
   console.log(`[NUOVO UTENTE] email: ${email} | password temporanea: ${tempPassword}`);
@@ -50,7 +56,6 @@ async function createEmployee(event: APIGatewayProxyEvent) {
       UserPoolId: USER_POOL_ID,
       Username: email,
       TemporaryPassword: tempPassword,
-      MessageAction: MessageActionType.SUPPRESS,
       UserAttributes: [
         { Name: 'email',                    Value: email },
         { Name: 'given_name',               Value: nome },
@@ -69,7 +74,7 @@ async function createEmployee(event: APIGatewayProxyEvent) {
     await cognitoClient.send(new AdminAddUserToGroupCommand({
       UserPoolId: USER_POOL_ID,
       Username: email,
-      GroupName: 'employee',
+      GroupName: groupName,
     }));
 
     return json(201, { message: 'Dipendente creato' });
@@ -126,6 +131,24 @@ async function updateEmployee(userId: string, event: APIGatewayProxyEvent) {
       ],
     }));
     return json(200, { message: 'Dipendente aggiornato' });
+  } catch (err: any) {
+    const { status, message } = cognitoErrorToHttp(err);
+    return json(status, message);
+  }
+}
+
+// --- POST /users/password-changed — segna la password come cambiata per l'utente corrente ---
+async function markPasswordChanged(claims: any) {
+  const username = claims['cognito:username'];
+  if (!username) return json(401, 'Non autenticato');
+
+  try {
+    await cognitoClient.send(new AdminUpdateUserAttributesCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: username,
+      UserAttributes: [{ Name: 'custom:password_changed', Value: 'true' }],
+    }));
+    return json(200, { message: 'Password aggiornata' });
   } catch (err: any) {
     const { status, message } = cognitoErrorToHttp(err);
     return json(status, message);

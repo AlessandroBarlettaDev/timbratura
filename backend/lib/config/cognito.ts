@@ -18,6 +18,7 @@ export class CognitoConfig extends Construct {
             selfSignUpEnabled: false,
             signInAliases: { email: true },
             autoVerify: { email: true },
+            email: cognito.UserPoolEmail.withCognito(),
             standardAttributes: {
                 email: { required: true, mutable: false },
                 givenName: { required: true, mutable: true },
