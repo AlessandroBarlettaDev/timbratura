@@ -1,23 +1,105 @@
 <div class="centered-container">
-    <div class="login-card">
-    <h2 id="form-title">{{ formTitle }}</h2>
+  <div class="login-card">
+    <h2>{{ formTitle }}</h2>
 
-    <div class="switch-container">
+    @if (step === 'login') {
+      <div class="switch-container">
         <button class="switch-btn" [class.active]="mode === 'dipendenti'" (click)="setMode('dipendenti')">Dipendenti</button>
-        <button class="switch-btn" [class.active]="mode === 'stazioni'" (click)="setMode('stazioni')">Stazioni</button>
-    </div>
+        <button class="switch-btn" [class.active]="mode === 'stazioni'"   (click)="setMode('stazioni')">Stazioni</button>
+      </div>
 
-        <form [formGroup]="form" (ngSubmit)="login()" id="loginForm" autocomplete="off">
-            <div class="form-group">
-                <input type="text" id="userInput" formControlName="user" [placeholder]="userPlaceholder" required>
-            </div>
-            <div class="form-group">
-                <input type="password" id="passInput" formControlName="password" placeholder="Password" required>
-            </div>
-            <button type="submit" class="btn-login">Accedi</button>
-            <button type="button" *ngIf="mode === 'dipendenti'" class="btn-forgot" (click)="resetPassword()">Recupera password</button>
-            <div class="error" *ngIf="loginError">{{ loginError }}</div>
-        </form>
-    </div>
+      <form [formGroup]="form" (ngSubmit)="login()" autocomplete="off">
+        <div class="form-group">
+          <input type="text"     formControlName="user"     [placeholder]="userPlaceholder">
+        </div>
+        <div class="form-group">
+          <div class="input-password">
+            <input [type]="showPassword ? 'text' : 'password'" formControlName="password" placeholder="Password">
+            <button type="button" class="btn-show-password" (click)="showPassword = !showPassword">
+              {{ showPassword ? 'Nascondi' : 'Mostra' }}
+            </button>
+          </div>
+        </div>
+        @if (loginError) { <p class="modal-error">{{ loginError }}</p> }
+        <button type="submit" class="btn-login">Accedi</button>
+        @if (mode === 'dipendenti') {
+          <button type="button" class="btn-forgot" (click)="step = 'reset_request'">Recupera password</button>
+        }
+      </form>
+    }
+
+    @if (step === 'change_password') {
+      <p style="color:#666; font-size:14px; margin-bottom:24px;">
+        Stai accedendo per la prima volta. Scegli una password personale.
+      </p>
+      <form [formGroup]="changePasswordForm" (ngSubmit)="changePassword()">
+        <div class="form-group">
+          <label>Nuova password</label>
+          <div class="input-password">
+            <input [type]="showPassword ? 'text' : 'password'" formControlName="newPassword" placeholder="Almeno 8 caratteri">
+            <button type="button" class="btn-show-password" (click)="showPassword = !showPassword">
+              {{ showPassword ? 'Nascondi' : 'Mostra' }}
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Conferma password</label>
+          <div class="input-password">
+            <input [type]="showPassword ? 'text' : 'password'" formControlName="confirmPassword" placeholder="Ripeti la password">
+          </div>
+        </div>
+        @if (passwordMismatch) { <p class="modal-error">Le password non coincidono.</p> }
+        @if (loginError)        { <p class="modal-error">{{ loginError }}</p> }
+        <button type="submit" class="btn-login">Continua</button>
+      </form>
+    }
+
+    @if (step === 'reset_request') {
+      <p style="color:#666; font-size:14px; margin-bottom:24px;">
+        Inserisci la tua email. Ti invieremo un codice per reimpostare la password.
+      </p>
+      <form [formGroup]="resetRequestForm" (ngSubmit)="requestPasswordReset()">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" formControlName="email" placeholder="email@esempio.it">
+        </div>
+        @if (loginError) { <p class="modal-error">{{ loginError }}</p> }
+        <button type="submit" class="btn-login">Invia codice</button>
+        <button type="button" class="btn-forgot" (click)="step = 'login'">← Torna al login</button>
+      </form>
+    }
+
+    @if (step === 'reset_confirm') {
+      <p style="color:#666; font-size:14px; margin-bottom:24px;">
+        Controlla la tua email e inserisci il codice ricevuto.
+      </p>
+      <form [formGroup]="resetConfirmForm" (ngSubmit)="confirmPasswordReset()">
+        <div class="form-group">
+          <label>Codice di verifica</label>
+          <input type="text" formControlName="code" placeholder="Codice ricevuto via email">
+        </div>
+        <div class="form-group">
+          <label>Nuova password</label>
+          <div class="input-password">
+            <input [type]="showPassword ? 'text' : 'password'" formControlName="newPassword" placeholder="Almeno 8 caratteri">
+            <button type="button" class="btn-show-password" (click)="showPassword = !showPassword">
+              {{ showPassword ? 'Nascondi' : 'Mostra' }}
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Conferma password</label>
+          <div class="input-password">
+            <input [type]="showPassword ? 'text' : 'password'" formControlName="confirmPassword" placeholder="Ripeti la password">
+          </div>
+        </div>
+        @if (passwordMismatch) { <p class="modal-error">Le password non coincidono.</p> }
+        @if (loginError)        { <p class="modal-error">{{ loginError }}</p> }
+        <button type="submit" class="btn-login">Reimposta password</button>
+        <button type="button" class="btn-forgot" (click)="step = 'reset_request'">← Reinvia codice</button>
+      </form>
+    }
+
+  </div>
 </div>
 

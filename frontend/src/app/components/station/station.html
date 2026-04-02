@@ -1,0 +1,21 @@
+<div class="station-container">
+
+  <div class="station-header">
+    <h1>{{ nomestazione }}</h1>
+    <button class="btn-logout-red" (click)="logout()">Esci</button>
+  </div>
+
+  <div class="station-qr-area">
+    @if (errore) {
+      <p class="modal-error">{{ errore }}</p>
+    } @else if (qrDataUrl) {
+      <img [src]="qrDataUrl" alt="QR Code timbratura" class="station-qr">
+      <p class="station-countdown">Aggiornamento tra {{ secondiRimasti }}s</p>
+    } @else {
+      <p style="color:#666">Caricamento QR...</p>
+    }
+  </div>
+
+  <p class="station-hint">Inquadra il codice con il tuo telefono per timbrare</p>
+
+</div>

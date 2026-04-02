@@ -12,6 +12,69 @@ Infrastruttura AWS del progetto Timbratura, definita con CDK TypeScript.
 
 ---
 
+## Flusso primo accesso (First Access)
+
+Quando un manager crea un nuovo utente, Cognito genera una password temporanea e la invia via email. Al primo login, l'utente viene guidato attraverso due step obbligatori prima di accedere alla dashboard.
+
+### Step 1 — Cambio password
+
+Cognito marca ogni utente creato da admin con stato `FORCE_CHANGE_PASSWORD`. Quando l'utente tenta il login con la password temporanea, Cognito non completa l'autenticazione ma risponde con la challenge `NEW_PASSWORD_REQUIRED`.
+
+Amplify traduce questa challenge in `nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED'`. Il frontend intercetta il valore e reindirizza l'utente alla pagina `/first-access`.
+
+L'utente inserisce la nuova password. Il frontend chiama `confirmSignIn({ challengeResponse: nuovaPassword })`, che completa la challenge e autentica l'utente definitivamente.
+
+Al termine, il backend aggiorna l'attributo Cognito `custom:password_changed = 'true'` tramite l'endpoint `POST /users/password-changed`, che usa `AdminUpdateUserAttributes` con le credenziali IAM della Lambda (non le credenziali utente).
+
+### Step 2 — Registrazione biometrica (WebAuthn)
+
+Dopo il cambio password, l'utente deve registrare il proprio dispositivo biometrico. Questo dispositivo verrà poi usato per timbrare le presenze senza dover inserire credenziali.
+
+Il protocollo utilizzato è **WebAuthn (FIDO2)**, lo standard W3C supportato nativamente dai browser moderni. Permette di usare Touch ID, Face ID, Windows Hello o chiavi hardware come autenticatori.
+
+**Librerie utilizzate:**
+- `@simplewebauthn/server` (backend) — genera le challenge e verifica le risposte crittograficamente
+- `@simplewebauthn/browser` (frontend) — gestisce il dialogo con l'API WebAuthn del browser
+
+**Flusso di registrazione:**
+
+```
+Frontend                          Backend                        DynamoDB
+   |                                 |                               |
+   |-- POST /biometric/registration/start -->                        |
+   |                                 |-- genera challenge ---------->|
+   |                                 |-- salva challenge temporanea->|
+   |<-- restituisce options ----------|                               |
+   |                                 |                               |
+   | [browser mostra prompt biometrico: Touch ID / Face ID / ecc.]  |
+   |                                 |                               |
+   |-- POST /biometric/registration/complete (credential) --------> |
+   |                                 |-- verifica firma crittografica|
+   |                                 |-- salva credenziale ---------->|
+   |<-- 200 OK --------------------- |                               |
+   |                                 |                               |
+   |-- POST /users/biometrics-registered -->                        |
+   |                                 |-- custom:biometrics_reg=true  |
+   |<-- 200 OK --------------------- |                               |
+   |                                 |                               |
+   | [reindirizza alla dashboard]    |                               |
+```
+
+**Dati salvati in DynamoDB (`WebAuthnCredentials`):**
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `credentialId` | PK (String) | Identificatore univoco della chiave sul dispositivo |
+| `userId` | String (GSI) | Email/username Cognito del proprietario |
+| `publicKey` | String | Chiave pubblica in formato Base64, usata per verificare le firme |
+| `counter` | Number | Contatore incrementale, protegge da attacchi di replay |
+| `transports` | List | Canali di comunicazione supportati (usb, ble, internal, ecc.) |
+| `createdAt` | String | Timestamp ISO della registrazione |
+
+La tabella ha anche record temporanei di tipo `challenge#<userId>` che contengono la challenge attiva durante la registrazione, con un TTL di 5 minuti.
+
+---
+
 ## Problemi noti e soluzioni
 
 ### Email di benvenuto non recapitata

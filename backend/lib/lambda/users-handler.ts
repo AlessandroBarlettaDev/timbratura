@@ -8,19 +8,26 @@ import {
   AdminDeleteUserCommand,
   ListUsersCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { DynamoDBClient, QueryCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
+import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { getJwtClaims, isManagerClaims } from './auth';
 import { cognitoErrorToHttp } from './errors';
 
 const cognitoClient = new CognitoIdentityProviderClient({});
-const USER_POOL_ID = process.env.USER_POOL_ID!;
+const dynamoClient  = new DynamoDBClient({});
+const USER_POOL_ID    = process.env.USER_POOL_ID!;
+const WEBAUTHN_TABLE  = process.env.WEBAUTHN_TABLE_NAME!;
 
 // Punto di ingresso — API Gateway chiama questa funzione per ogni richiesta su /users
 export const handler = async (event: APIGatewayProxyEvent) => {
   const claims = getJwtClaims(event);
 
-  // Rotta accessibile a qualsiasi utente autenticato (non solo manager)
+  // Rotte accessibili a qualsiasi utente autenticato (non solo manager)
   if (event.httpMethod === 'POST' && event.resource === '/users/password-changed') {
     return await markPasswordChanged(claims);
+  }
+  if (event.httpMethod === 'POST' && event.resource === '/users/biometrics-registered') {
+    return await markBiometricsRegistered(claims);
   }
 
   if (!isManagerClaims(claims)) return json(403, 'Accesso negato');
@@ -137,6 +144,24 @@ async function updateEmployee(userId: string, event: APIGatewayProxyEvent) {
   }
 }
 
+// --- POST /users/biometrics-registered — segna la biometria come registrata per l'utente corrente ---
+async function markBiometricsRegistered(claims: any) {
+  const username = claims['cognito:username'];
+  if (!username) return json(401, 'Non autenticato');
+
+  try {
+    await cognitoClient.send(new AdminUpdateUserAttributesCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: username,
+      UserAttributes: [{ Name: 'custom:biometrics_reg', Value: 'true' }],
+    }));
+    return json(200, { message: 'Biometria registrata' });
+  } catch (err: any) {
+    const { status, message } = cognitoErrorToHttp(err);
+    return json(status, message);
+  }
+}
+
 // --- POST /users/password-changed — segna la password come cambiata per l'utente corrente ---
 async function markPasswordChanged(claims: any) {
   const username = claims['cognito:username'];
@@ -155,13 +180,32 @@ async function markPasswordChanged(claims: any) {
   }
 }
 
-// --- DELETE /users/{id} — elimina un dipendente ---
+// --- DELETE /users/{id} — elimina un dipendente e i suoi dispositivi biometrici ---
 async function deleteEmployee(userId: string) {
   try {
+    // 1. Elimina l'utente da Cognito
     await cognitoClient.send(new AdminDeleteUserCommand({
       UserPoolId: USER_POOL_ID,
       Username: userId,
     }));
+
+    // 2. Cerca tutti i dispositivi biometrici registrati per questo utente
+    const result = await dynamoClient.send(new QueryCommand({
+      TableName: WEBAUTHN_TABLE,
+      IndexName: 'userId-index',
+      KeyConditionExpression: 'userId = :uid',
+      ExpressionAttributeValues: marshall({ ':uid': userId }),
+    }));
+
+    // 3. Elimina ogni credenziale trovata
+    const credentials = (result.Items ?? []).map(i => unmarshall(i));
+    await Promise.all(credentials.map(c =>
+      dynamoClient.send(new DeleteItemCommand({
+        TableName: WEBAUTHN_TABLE,
+        Key: marshall({ credentialId: c.credentialId }),
+      }))
+    ));
+
     return json(200, { message: 'Dipendente eliminato' });
   } catch (err: any) {
     const { status, message } = cognitoErrorToHttp(err);

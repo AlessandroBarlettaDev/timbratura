@@ -1,28 +1,31 @@
-
-// Interceptor HTTP che aggiunge il token JWT alle richieste
+// Interceptor HTTP che aggiunge il token JWT corretto a ogni richiesta:
+// - rotte /stazioni/me/* → JWT custom della stazione (sincrono, da localStorage)
+// - tutte le altre rotte → JWT Cognito dell'utente (asincrono, da Amplify)
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { AuthService } from './auth.service';
+import { AuthService } from './user-auth.service';
+import { StationAuthService } from './station-auth.service';
 import { from, switchMap } from 'rxjs';
 
-
-// Funzione interceptor che intercetta tutte le richieste HTTP
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  // Recupera l'istanza di AuthService tramite dependency injection
-  const authService = inject(AuthService);
+  const authService    = inject(AuthService);
+  const stationAuth    = inject(StationAuthService);
 
-  // Ottiene il token JWT in modo asincrono (può essere una Promise)
+  // Le rotte della stazione usano il JWT custom — il token è già in localStorage
+  if (req.url.includes('/stazioni/me/')) {
+    const token = stationAuth.getToken();
+    if (token) {
+      return next(req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }));
+    }
+    return next(req);
+  }
+
+  // Tutte le altre rotte usano il JWT Cognito (ottenuto in modo asincrono da Amplify)
   return from(authService.getToken()).pipe(
     switchMap(token => {
-      // Se il token esiste, clona la richiesta e aggiunge l'header Authorization
       if (token) {
-        const cloned = req.clone({
-          setHeaders: { Authorization: `Bearer ${token}` }
-        });
-        // Passa la richiesta clonata (con token) al prossimo handler
-        return next(cloned);
+        return next(req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }));
       }
-      // Se non c'è token, passa la richiesta originale
       return next(req);
     })
   );

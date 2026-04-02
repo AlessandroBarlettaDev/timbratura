@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { signIn, fetchAuthSession, getCurrentUser, signOut } from 'aws-amplify/auth';
+import { signIn, fetchAuthSession, getCurrentUser, signOut, confirmSignIn } from 'aws-amplify/auth';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -13,30 +13,33 @@ export class AuthService {
         this.checkCurrentSession();
     }
 
-    async loginWithAmplify(identifier: string, password: string): Promise<string> {
-        try {
-            // Se c'è già una sessione attiva la chiudiamo prima di fare login
-            await signOut().catch(() => {});
+    // Restituisce 'success' oppure 'password_change_required' invece di lanciare eccezioni
+    // così il componente Login può gestire il cambio password senza navigare via
+    async loginWithAmplify(identifier: string, password: string): Promise<'success' | 'password_change_required'> {
+        await signOut().catch(() => {});
 
-            const { isSignedIn, nextStep } = await signIn({
-                username: identifier,
-                password: password,
-            });
+        const { isSignedIn, nextStep } = await signIn({
+            username: identifier,
+            password: password,
+        });
 
-            if (nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
-                throw new Error('PASSWORD_CHANGE_REQUIRED');
-            }
-
-            if (isSignedIn) {
-                await this.checkCurrentSession(); // Popola le variabili dopo il login
-                const session = await fetchAuthSession();
-                return session.tokens?.idToken?.toString() || '';
-            }
-
-            throw new Error('Errore sconosciuto');
-        } catch (error: any) {
-            throw error;
+        if (nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+            return 'password_change_required';
         }
+
+        if (isSignedIn) {
+            await this.checkCurrentSession();
+            return 'success';
+        }
+
+        throw new Error('Errore sconosciuto');
+    }
+
+    // Completa la challenge del primo accesso con la nuova password scelta dall'utente
+    async confirmNewPassword(newPassword: string): Promise<void> {
+        const { isSignedIn } = await confirmSignIn({ challengeResponse: newPassword });
+        if (!isSignedIn) throw new Error('Errore durante il cambio password');
+        await this.checkCurrentSession();
     }
 
     // Recupera i dati dell'utente e i gruppi dai token

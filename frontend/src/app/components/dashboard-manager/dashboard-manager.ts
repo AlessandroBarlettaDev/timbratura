@@ -1,7 +1,7 @@
 import { Component, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
-import { AuthService } from '../../services/auth.service';
+import { AuthService } from '../../services/user-auth.service';
 
 type Section = 'dashboard' | 'utenti' | 'stazioni';
 
@@ -41,7 +41,7 @@ export class DashboardManager {
   // --- Gestione utente ---
   selectUser(user: any) {
     this.apiService.getUser(user.id).subscribe({
-      next: (data) => { this.selectedUser = data; console.log('Utente selezionato:', data); this.cdr.detectChanges(); },
+      next: (data) => { this.selectedUser = data; this.cdr.detectChanges(); },
       error: (err) => console.error('Errore caricamento utente:', err),
     });
   }
@@ -51,6 +51,7 @@ export class DashboardManager {
     this.selectedUser = null;
   }
 
+  // Apre il modal di modifica con i dati dell'utente selezionato
   openEditModal() {
     // Copia i dati dell'utente selezionato nel form di modifica
     this.editUser = {
@@ -64,18 +65,24 @@ export class DashboardManager {
     this.showEditModal = true;
   }
 
+  // Salva le modifiche dell'utente selezionato
   saveEdit() {
     this.apiService.modifyUser(this.selectedUser.id, this.editUser).subscribe({
       next: () => {
         this.showEditModal = false;
         this.cdr.detectChanges();
-        // Ricarica il dettaglio aggiornato
         this.selectUser({ id: this.selectedUser.id });
       },
       error: (err) => console.error('Errore modifica utente:', err),
     });
   }
 
+  // Apre la conferma di eliminazione dell'utente selezionato
+  confirmDeleteUser() {
+    this.showDeleteConfirm = true;
+  }
+
+  // Elimina l'utente selezionato
   confirmDelete() {
     this.apiService.deleteUser(this.selectedUser.id).subscribe({
       next: () => {
@@ -89,18 +96,20 @@ export class DashboardManager {
     });
   }
 
-
+  // --- Gestione creazione nuovo utente ---
   openModal() {
     this.newUser = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', data_assunzione: '', termine_contratto: '', ruolo: 'employee' };
     this.modalError = null;
     this.showModal = true;
   }
 
+  // Chiude il modal di creazione/modifica utente
   closeModal() {
     this.showModal = false;
     this.modalError = null;
   }
 
+  // Crea un nuovo utente con i dati inseriti nel form
   addUser() {
     this.modalError = null;
     this.apiService.createUser(this.newUser).subscribe({
@@ -114,6 +123,7 @@ export class DashboardManager {
     });
   }
 
+  // Carica la lista degli utenti dal backend
   private loadUtenti() {
     this.isLoading = true;
     this.apiService.getUsers().subscribe({
