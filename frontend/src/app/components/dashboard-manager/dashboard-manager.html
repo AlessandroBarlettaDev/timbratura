@@ -2,6 +2,7 @@
 
   <!-- Sidebar sinistra -->
   <aside class="sidebar">
+    <span class="brand" style="padding: 0 12px; margin-bottom: 16px; display:block;">TIMBRATURA</span>
     <span class="sidebar-title">Menu</span>
     <button class="nav-item" [class.active]="activeSection === 'dashboard'" (click)="setSection('dashboard')">Dashboard</button>
     <button class="nav-item" [class.active]="activeSection === 'utenti'"    (click)="setSection('utenti')">Utenti</button>
@@ -87,27 +88,69 @@
     }
 
     @if (!showProfile && activeSection === 'stazioni') {
-      <h2 class="panel-title">Stazioni</h2>
-      @if (stazioni.length > 0) {
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Codice</th>
-              <th>Nome</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (s of stazioni; track s.codice) {
+
+      @if (!selectedStazione) {
+        <div class="panel-header">
+          <h2 class="panel-title">Stazioni</h2>
+          <button class="btn-login" style="width:auto; padding: 10px 20px;" (click)="openStazioneModal()">+ Aggiungi stazione</button>
+        </div>
+        @if (isLoading) {
+          <div class="spinner-container"><div class="spinner"></div></div>
+        } @else if (stazioni.length > 0) {
+          <table class="data-table">
+            <thead>
               <tr>
-                <td>{{ s.codice }}</td>
-                <td>{{ s.nome }}</td>
+                <th>Codice</th>
+                <th>Descrizione</th>
+                <th>Stato</th>
+                <th></th>
               </tr>
-            }
-          </tbody>
-        </table>
-      } @else {
-        <p class="empty-state">Nessuna stazione trovata.</p>
+            </thead>
+            <tbody>
+              @for (s of stazioni; track s.stationId) {
+                <tr class="clickable-row" (click)="selectStazione(s)">
+                  <td><strong>{{ s.codice }}</strong></td>
+                  <td>{{ s.descrizione }}</td>
+                  <td>
+                    <span class="badge" [class.badge-active]="s.isActive" [class.badge-inactive]="!s.isActive">
+                      {{ s.isActive ? 'Attiva' : 'Inattiva' }}
+                    </span>
+                  </td>
+                  <td style="text-align:right">
+                    <button class="btn-detail-action btn-detail-danger" (click)="$event.stopPropagation(); richiediEliminaStazione(s)">Elimina</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p class="empty-state">Nessuna stazione trovata.</p>
+        }
       }
+
+      @if (selectedStazione) {
+        <button class="btn-back" (click)="backToListStazioni()">← Torna alla lista</button>
+        <div class="detail-header">
+          <h2 class="panel-title">{{ selectedStazione.descrizione }}</h2>
+          <div class="detail-actions">
+            <button class="btn-detail-action btn-detail-danger" (click)="showDeleteStazioneConfirm = true">Elimina</button>
+          </div>
+        </div>
+        <div class="detail-grid">
+          <span class="detail-label">Codice stazione</span> <span><strong>{{ selectedStazione.codice }}</strong></span>
+          <span class="detail-label">Password</span>        <span>{{ selectedStazione.password }}</span>
+          <span class="detail-label">Stato</span>
+          <span>
+            <span class="badge" [class.badge-active]="selectedStazione.isActive" [class.badge-inactive]="!selectedStazione.isActive">
+              {{ selectedStazione.isActive ? 'Attiva' : 'Inattiva' }}
+            </span>
+          </span>
+          <span class="detail-label">Ultima attività</span> <span>{{ selectedStazione.lastSeen ?? '—' }}</span>
+          <span class="detail-label">Posizione</span>       <span>{{ selectedStazione.lat != null ? selectedStazione.lat + ', ' + selectedStazione.lng : '—' }}</span>
+          <span class="detail-label">Creata il</span>       <span>{{ selectedStazione.createdAt }}</span>
+        </div>
+      }
+
     }
 
   </main>
@@ -131,7 +174,7 @@
   </div>
 }
 
-<!-- Dialog conferma eliminazione -->
+<!-- Dialog conferma eliminazione utente -->
 @if (showDeleteConfirm) {
   <div class="modal-overlay" (click)="showDeleteConfirm = false">
     <div class="modal-card" style="max-width:360px; text-align:center;" (click)="$event.stopPropagation()">
@@ -143,6 +186,33 @@
   </div>
 }
 
+<!-- Dialog conferma eliminazione stazione -->
+@if (showDeleteStazioneConfirm) {
+  <div class="modal-overlay" (click)="showDeleteStazioneConfirm = false">
+    <div class="modal-card" style="max-width:360px; text-align:center;" (click)="$event.stopPropagation()">
+      <h2>Elimina stazione</h2>
+      <p style="color:#666; margin-bottom:28px;">Sei sicuro di voler eliminare <strong>{{ stazioneToDelete?.descrizione ?? selectedStazione?.descrizione }}</strong>? L'operazione è permanente.</p>
+      <button class="btn-logout" (click)="confirmDeleteStazione()">Sì, elimina definitivamente</button>
+      <button class="btn-forgot" (click)="showDeleteStazioneConfirm = false">Annulla</button>
+    </div>
+  </div>
+}
+
+<!-- Modal nuova stazione -->
+@if (showStazioneModal) {
+  <div class="modal-overlay" (click)="closeStazioneModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <h2>Nuova stazione</h2>
+      <div class="form-group"><label>Descrizione *</label>  <input type="text"     [(ngModel)]="newStazione.descrizione" placeholder="Es. Ingresso principale"></div>
+      <div class="form-group"><label>Password *</label>     <input type="password" [(ngModel)]="newStazione.password"    placeholder="Password di accesso"></div>
+      @if (stazioneModalError) { <p class="modal-error">{{ stazioneModalError }}</p> }
+      <button class="btn-login" (click)="addStazione()">Crea stazione</button>
+      <button class="btn-forgot" (click)="closeStazioneModal()">Annulla</button>
+    </div>
+  </div>
+}
+
+<!-- Modal nuovo utente -->
 @if (showModal) {
   <div class="modal-overlay" (click)="closeModal()">
     <div class="modal-card" (click)="$event.stopPropagation()">

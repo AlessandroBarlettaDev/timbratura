@@ -1,21 +1,50 @@
-<div class="station-container">
+<div class="station-page">
 
-  <div class="station-header">
-    <h1>{{ nomestazione }}</h1>
-    <button class="btn-logout-red" (click)="logout()">Esci</button>
+  <!-- Topbar con brand e logout -->
+  <header class="station-topbar">
+    <span class="brand">TIMBRATURA</span>
+    <button class="btn-logout" style="width:auto; padding: 8px 20px;" (click)="logout()">Esci</button>
+  </header>
+
+  <!-- Layout bicolonna -->
+  <div class="station-layout">
+
+    <!-- Pannello sinistro: informazioni stazione -->
+    <div class="station-info-panel">
+
+      <p class="station-descrizione">{{ descrizione }}</p>
+
+      <div class="info-card">
+        <span class="info-label">Orario</span>
+        <span class="info-value">{{ orario }}</span>
+      </div>
+
+      <div class="info-card">
+        <span class="info-label">Scadenza QR</span>
+        @if (secondiRimasti > 0) {
+          <span class="info-value-sm"> {{ secondiRimasti || '—' }} s</span>
+        }
+      </div>
+
+      <div class="info-card">
+        <span class="info-label">Attualmente presenti</span>
+        <span class="info-value">—</span>
+      </div>
+
+    </div>
+
+    <!-- Pannello destro: QR code -->
+    <div class="station-qr-panel">
+      @if (errore) {
+        <p class="modal-error">{{ errore }}</p>
+      } @else if (qrDataUrl) {
+        <img [src]="qrDataUrl" alt="QR Code timbratura" class="station-qr">
+        <p class="station-hint">Inquadra il codice con il tuo telefono per timbrare</p>
+      } @else {
+        <div class="spinner-container"><div class="spinner"></div></div>
+      }
+    </div>
+
   </div>
-
-  <div class="station-qr-area">
-    @if (errore) {
-      <p class="modal-error">{{ errore }}</p>
-    } @else if (qrDataUrl) {
-      <img [src]="qrDataUrl" alt="QR Code timbratura" class="station-qr">
-      <p class="station-countdown">Aggiornamento tra {{ secondiRimasti }}s</p>
-    } @else {
-      <p style="color:#666">Caricamento QR...</p>
-    }
-  </div>
-
-  <p class="station-hint">Inquadra il codice con il tuo telefono per timbrare</p>
 
 </div>

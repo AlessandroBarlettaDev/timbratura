@@ -13,47 +13,53 @@ type Section = 'dashboard' | 'utenti' | 'stazioni';
 })
 export class DashboardManager {
   activeSection: Section = 'dashboard';
-  utenti: any[] = [];
+  utenti:   any[] = [];
   stazioni: any[] = [];
-  selectedUser: any = null;
-  showProfile = false;
-  isLoading = false;
+  selectedUser:     any = null;
+  selectedStazione: any = null;
+  showProfile  = false;
+  isLoading    = false;
 
-  showModal = false;
-  newUser = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', data_assunzione: '', termine_contratto: '', ruolo: 'employee' };
+  // --- Stato modale nuovo utente ---
+  showModal  = false;
+  newUser    = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', data_assunzione: '', termine_contratto: '', ruolo: 'employee' };
   modalError: string | null = null;
 
-  showEditModal = false;
-  editUser: any = {};
-
+  // --- Stato modifica/elimina utente ---
+  showEditModal     = false;
+  editUser: any     = {};
   showDeleteConfirm = false;
+
+  // --- Stato sezione stazioni ---
+  showStazioneModal         = false;
+  newStazione               = { descrizione: '', password: '' };
+  stazioneModalError: string | null = null;
+  stazioneToDelete:   any   = null;
+  showDeleteStazioneConfirm = false;
 
   constructor(private apiService: ApiService, public authService: AuthService, private cdr: ChangeDetectorRef) {}
 
   // --- Gestione navigazione tra sezioni ---
   setSection(section: Section) {
-    this.selectedUser = null;
-    this.showProfile = false;
-    this.activeSection = section;
-    if (section === 'utenti' && this.utenti.length === 0) this.loadUtenti();
+    this.selectedUser     = null;
+    this.selectedStazione = null;
+    this.showProfile      = false;
+    this.activeSection    = section;
+    if (section === 'utenti'   && this.utenti.length   === 0) this.loadUtenti();
+    if (section === 'stazioni' && this.stazioni.length === 0) this.loadStazioni();
   }
 
-  // --- Gestione utente ---
+  // --- Gestione utenti ---
   selectUser(user: any) {
     this.apiService.getUser(user.id).subscribe({
       next: (data) => { this.selectedUser = data; this.cdr.detectChanges(); },
-      error: (err) => console.error('Errore caricamento utente:', err),
+      error: (err)  => console.error('Errore caricamento utente:', err),
     });
   }
 
-  // Torna alla lista utenti
-  backToList() {
-    this.selectedUser = null;
-  }
+  backToList() { this.selectedUser = null; }
 
-  // Apre il modal di modifica con i dati dell'utente selezionato
   openEditModal() {
-    // Copia i dati dell'utente selezionato nel form di modifica
     this.editUser = {
       nome:              this.selectedUser.given_name,
       cognome:           this.selectedUser.family_name,
@@ -65,24 +71,15 @@ export class DashboardManager {
     this.showEditModal = true;
   }
 
-  // Salva le modifiche dell'utente selezionato
   saveEdit() {
     this.apiService.modifyUser(this.selectedUser.id, this.editUser).subscribe({
-      next: () => {
-        this.showEditModal = false;
-        this.cdr.detectChanges();
-        this.selectUser({ id: this.selectedUser.id });
-      },
+      next: ()     => { this.showEditModal = false; this.cdr.detectChanges(); this.selectUser({ id: this.selectedUser.id }); },
       error: (err) => console.error('Errore modifica utente:', err),
     });
   }
 
-  // Apre la conferma di eliminazione dell'utente selezionato
-  confirmDeleteUser() {
-    this.showDeleteConfirm = true;
-  }
+  confirmDeleteUser() { this.showDeleteConfirm = true; }
 
-  // Elimina l'utente selezionato
   confirmDelete() {
     this.apiService.deleteUser(this.selectedUser.id).subscribe({
       next: () => {
@@ -96,39 +93,81 @@ export class DashboardManager {
     });
   }
 
-  // --- Gestione creazione nuovo utente ---
   openModal() {
-    this.newUser = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', data_assunzione: '', termine_contratto: '', ruolo: 'employee' };
+    this.newUser    = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', data_assunzione: '', termine_contratto: '', ruolo: 'employee' };
     this.modalError = null;
-    this.showModal = true;
+    this.showModal  = true;
   }
 
-  // Chiude il modal di creazione/modifica utente
-  closeModal() {
-    this.showModal = false;
-    this.modalError = null;
-  }
+  closeModal() { this.showModal = false; this.modalError = null; }
 
-  // Crea un nuovo utente con i dati inseriti nel form
   addUser() {
     this.modalError = null;
     this.apiService.createUser(this.newUser).subscribe({
-      next: () => {
-        this.closeModal();
-        this.utenti = [];
-        this.cdr.detectChanges();
-        this.loadUtenti();
-      },
+      next: ()     => { this.closeModal(); this.utenti = []; this.cdr.detectChanges(); this.loadUtenti(); },
       error: (err) => { this.modalError = err.error?.message ?? 'Errore durante la creazione'; this.cdr.detectChanges(); },
     });
   }
 
-  // Carica la lista degli utenti dal backend
   private loadUtenti() {
     this.isLoading = true;
     this.apiService.getUsers().subscribe({
       next: (data) => { this.utenti = data; this.isLoading = false; this.cdr.detectChanges(); },
-      error: (err) => { console.error('Errore caricamento utenti:', err); this.isLoading = false; this.cdr.detectChanges(); },
+      error: (err)  => { console.error('Errore caricamento utenti:', err); this.isLoading = false; this.cdr.detectChanges(); },
+    });
+  }
+
+  // --- Gestione stazioni ---
+  selectStazione(stazione: any) {
+    this.apiService.getStazione(stazione.stationId).subscribe({
+      next: (data) => { this.selectedStazione = data; this.cdr.detectChanges(); },
+      error: (err)  => console.error('Errore caricamento stazione:', err),
+    });
+  }
+
+  backToListStazioni() { this.selectedStazione = null; }
+
+  openStazioneModal() {
+    this.newStazione        = { descrizione: '', password: '' };
+    this.stazioneModalError = null;
+    this.showStazioneModal  = true;
+  }
+
+  closeStazioneModal() { this.showStazioneModal = false; this.stazioneModalError = null; }
+
+  addStazione() {
+    this.stazioneModalError = null;
+    this.apiService.createStazione(this.newStazione).subscribe({
+      next: ()     => { this.closeStazioneModal(); this.stazioni = []; this.cdr.detectChanges(); this.loadStazioni(); },
+      error: (err) => { this.stazioneModalError = err.error?.message ?? 'Errore durante la creazione'; this.cdr.detectChanges(); },
+    });
+  }
+
+  richiediEliminaStazione(stazione: any) {
+    this.stazioneToDelete          = stazione;
+    this.showDeleteStazioneConfirm = true;
+  }
+
+  confirmDeleteStazione() {
+    const id = this.stazioneToDelete?.stationId ?? this.selectedStazione?.stationId;
+    this.apiService.deleteStazione(id).subscribe({
+      next: () => {
+        this.showDeleteStazioneConfirm = false;
+        this.stazioneToDelete          = null;
+        this.selectedStazione          = null;
+        this.stazioni = [];
+        this.cdr.detectChanges();
+        this.loadStazioni();
+      },
+      error: (err) => console.error('Errore eliminazione stazione:', err),
+    });
+  }
+
+  private loadStazioni() {
+    this.isLoading = true;
+    this.apiService.getStazioni().subscribe({
+      next: (data) => { this.stazioni = data; this.isLoading = false; this.cdr.detectChanges(); },
+      error: (err)  => { console.error('Errore caricamento stazioni:', err); this.isLoading = false; this.cdr.detectChanges(); },
     });
   }
 }

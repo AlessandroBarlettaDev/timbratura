@@ -13,13 +13,16 @@ const QR_REFRESH_MS = 3 * 60 * 1000; // 3 minuti — stesso TTL del backend
   styleUrl: '../../app.css',
 })
 export class Station implements OnInit, OnDestroy {
-  nomestazione   = '';
+  descrizione    = '';
   qrDataUrl      = '';             // immagine QR generata da qrcode
   secondiRimasti = QR_REFRESH_MS / 1000;
+  orario         = '';             // ora corrente aggiornata ogni secondo
+  scadenzaQrOra  = '';             // orario di scadenza del QR (HH:MM:SS)
   errore: string | null = null;
 
-  private refreshTimer: any;      // interval per il rinnovo del QR
-  private countdownTimer: any;    // interval per il countdown visivo
+  private scadenzaTimestamp = 0;   // timestamp Unix scadenza QR
+  private refreshTimer: any;       // interval per il rinnovo del QR
+  private countdownTimer: any;     // interval per il countdown visivo + orologio
 
   constructor(
     private stationAuth: StationAuthService,
@@ -35,7 +38,10 @@ export class Station implements OnInit, OnDestroy {
       return;
     }
 
-    this.nomestazione = this.stationAuth.getStazione()?.nome ?? '';
+    this.descrizione = this.stationAuth.getStazione()?.descrizione ?? '';
+
+    // Avvia subito l'orologio — si aggiorna ogni secondo insieme al countdown
+    this.avviaOrologio();
 
     // Acquisisce la posizione GPS e la invia al backend
     this.inviaPosizioneGps();
@@ -54,9 +60,8 @@ export class Station implements OnInit, OnDestroy {
   private rinnovaQr() {
     this.api.getStazioneQr().subscribe({
       next: async (res: { qrUrl: string; expiresAt: number }) => {
-        // Genera l'immagine QR a partire dall'URL restituito dal backend
-        this.qrDataUrl = await QRCode.toDataURL(res.qrUrl, { width: 400, margin: 2 });
-        this.avviaCountdown();
+        this.scadenzaTimestamp = res.expiresAt;
+        this.qrDataUrl = await QRCode.toDataURL(res.qrUrl, { width: 380, margin: 2 });
         this.cdr.detectChanges();
       },
       error: (err: any) => {
@@ -66,16 +71,26 @@ export class Station implements OnInit, OnDestroy {
     });
   }
 
-  // Avvia il countdown visivo che mostra i secondi al prossimo rinnovo
-  private avviaCountdown() {
-    clearInterval(this.countdownTimer);
-    this.secondiRimasti = QR_REFRESH_MS / 1000;
+  // Interval unico ogni secondo: aggiorna orologio, countdown QR e orario scadenza
+  private avviaOrologio() {
+    const tick = () => {
+      const ora = new Date();
+      this.orario = ora.toLocaleTimeString('it-IT');
 
-    this.countdownTimer = setInterval(() => {
-      this.secondiRimasti--;
-      if (this.secondiRimasti <= 0) clearInterval(this.countdownTimer);
+      if (this.scadenzaTimestamp > 0) {
+        const secondiAllaScadenza = this.scadenzaTimestamp - Math.floor(Date.now() / 1000);
+        this.secondiRimasti = Math.max(0, secondiAllaScadenza);
+
+        // Mostra l'orario assoluto di scadenza del QR
+        const scadenza = new Date(this.scadenzaTimestamp * 1000);
+        this.scadenzaQrOra = scadenza.toLocaleTimeString('it-IT');
+      }
+
       this.cdr.detectChanges();
-    }, 1000);
+    };
+
+    tick(); // prima esecuzione immediata
+    this.countdownTimer = setInterval(tick, 1000);
   }
 
   // Rileva la posizione GPS del dispositivo e la invia al backend

@@ -29,6 +29,7 @@ export class ApiService {
 
   // --- Stazioni CRUD (Cognito manager) ---
   getStazioni(): Observable<any>              { return this.http.get(`${this.apiUrl}/stazioni`); }
+  getStazione(id: string): Observable<any>    { return this.http.get(`${this.apiUrl}/stazioni/${id}`); }
   createStazione(data: any): Observable<any>  { return this.http.post(`${this.apiUrl}/stazioni`, data); }
   deleteStazione(id: string): Observable<any> { return this.http.delete(`${this.apiUrl}/stazioni/${id}`); }
 } 

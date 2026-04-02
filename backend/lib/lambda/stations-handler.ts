@@ -1,17 +1,15 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand, DeleteItemCommand, ScanCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
-import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getJwtClaims, isManagerClaims } from './auth';
-import { cognitoErrorToHttp } from './errors';
 
 const dynamo        = new DynamoDBClient({});
 const TABLE_NAME    = process.env.STAZIONI_TABLE_NAME!;
-const JWT_SECRET    = process.env.JWT_SECRET!;       // chiave segreta per firmare i JWT delle stazioni
+const JWT_SECRET    = process.env.JWT_SECRET!;
 const APP_URL       = process.env.APP_URL ?? 'http://localhost:4200';
-const QR_TTL_SECS   = 3 * 60;                        // il QR scade dopo 3 minuti
+const QR_TTL_SECS   = 3 * 60;  // il QR scade dopo 3 minuti
 
 // Punto di ingresso — routing interno per le rotte /stazioni/*
 export const handler = async (event: APIGatewayProxyEvent) => {
@@ -37,33 +35,33 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 
   if (httpMethod === 'POST'   && resource === '/stazioni')       return await createStazione(event);
   if (httpMethod === 'GET'    && resource === '/stazioni')       return await listStazioni();
+  if (httpMethod === 'GET'    && resource === '/stazioni/{id}')  return await getStazioneDettaglio(event.pathParameters?.id!);
   if (httpMethod === 'DELETE' && resource === '/stazioni/{id}')  return await deleteStazione(event.pathParameters?.id!);
 
   return json(404, 'Rotta non trovata');
 };
 
 // --- POST /stazioni — crea una nuova stazione (manager) ---
+// Il manager fornisce descrizione e password; il codice è generato automaticamente
 async function createStazione(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { nome, codice, password } = JSON.parse(event.body);
-  if (!nome || !codice || !password) return json(400, 'nome, codice e password sono obbligatori');
+  const { descrizione, password } = JSON.parse(event.body);
+  if (!descrizione || !password) return json(400, 'descrizione e password sono obbligatori');
 
-  // Verifica che il codice non sia già in uso
-  const existing = await getStazioneByCodice(codice);
-  if (existing) return json(409, 'Codice stazione già in uso');
+  // Genera il codice automaticamente — formato STZ-XXXXXX (6 caratteri hex maiuscoli)
+  const codice    = 'STZ-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+  const stationId = uuidv4();
 
-  // Hash della password — bcrypt aggiunge automaticamente il salt
-  const passwordHash = await bcrypt.hash(password, 10);
-  const stationId    = uuidv4();
-
+  // La password è salvata in chiaro per permettere al manager di visualizzarla nella dashboard
+  // NOTA: in un sistema reale usare bcrypt o AWS Secrets Manager
   await dynamo.send(new PutItemCommand({
     TableName: TABLE_NAME,
     Item: marshall({
       stationId,
-      nome,
+      descrizione,
       codice,
-      passwordHash,
+      password,
       lat:       null,
       lng:       null,
       lastSeen:  null,
@@ -71,7 +69,7 @@ async function createStazione(event: APIGatewayProxyEvent) {
     }),
   }));
 
-  return json(201, { stationId, nome, codice });
+  return json(201, { stationId, descrizione, codice });
 }
 
 // --- GET /stazioni — lista tutte le stazioni (manager) ---
@@ -84,17 +82,38 @@ async function listStazioni() {
     // Una stazione è attiva se ha richiesto un QR negli ultimi 6 minuti (2× il TTL del QR)
     const isActive = s.lastSeen ? (now - new Date(s.lastSeen).getTime()) < 6 * 60 * 1000 : false;
     return {
-      stationId: s.stationId,
-      nome:      s.nome,
-      codice:    s.codice,
-      lat:       s.lat,
-      lng:       s.lng,
-      lastSeen:  s.lastSeen,
+      stationId:   s.stationId,
+      descrizione: s.descrizione,
+      codice:      s.codice,
+      lat:         s.lat,
+      lng:         s.lng,
+      lastSeen:    s.lastSeen,
       isActive,
     };
   });
 
   return json(200, stazioni);
+}
+
+// --- GET /stazioni/{id} — dettaglio stazione con credenziali (manager) ---
+async function getStazioneDettaglio(stationId: string) {
+  const s = await getStazioneById(stationId);
+  if (!s) return json(404, 'Stazione non trovata');
+
+  const now      = Date.now();
+  const isActive = s.lastSeen ? (now - new Date(s.lastSeen).getTime()) < 6 * 60 * 1000 : false;
+
+  return json(200, {
+    stationId:   s.stationId,
+    descrizione: s.descrizione,
+    codice:      s.codice,
+    password:    s.password,
+    lat:         s.lat,
+    lng:         s.lng,
+    lastSeen:    s.lastSeen,
+    createdAt:   s.createdAt,
+    isActive,
+  });
 }
 
 // --- DELETE /stazioni/{id} — elimina una stazione (manager) ---
@@ -106,7 +125,7 @@ async function deleteStazione(stationId: string) {
   return json(200, { message: 'Stazione eliminata' });
 }
 
-// --- POST /stazioni/login — autenticazione stazione ---
+// --- POST /stazioni/login — autenticazione stazione con codice + password ---
 async function loginStazione(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
@@ -116,16 +135,14 @@ async function loginStazione(event: APIGatewayProxyEvent) {
   const stazione = await getStazioneByCodice(codice);
   if (!stazione) return json(401, 'Credenziali non valide');
 
-  // Verifica la password contro l'hash salvato
-  const passwordOk = await bcrypt.compare(password, stazione.passwordHash);
-  if (!passwordOk) return json(401, 'Credenziali non valide');
+  // Confronto diretto — password salvata in plaintext
+  if (stazione.password !== password) return json(401, 'Credenziali non valide');
 
-  // Genera il JWT firmato con HMAC-SHA256 usando crypto nativo di Node
   const token = generaJwt({ stationId: stazione.stationId, codice: stazione.codice });
 
   return json(200, {
     token,
-    stazione: { stationId: stazione.stationId, nome: stazione.nome, codice: stazione.codice },
+    stazione: { stationId: stazione.stationId, descrizione: stazione.descrizione, codice: stazione.codice },
   });
 }
 
@@ -141,16 +158,15 @@ async function getQr(stationId: string) {
     .digest('hex');
 
   // Aggiorna lastSeen — usato dal manager per sapere se la stazione è attiva
-  await dynamo.send(new PutItemCommand({
-    TableName: TABLE_NAME,
-    Item: (await getStazioneById(stationId))
-      ? marshall({ ...(await getStazioneById(stationId))!, lastSeen: new Date().toISOString() })
-      : marshall({ stationId, lastSeen: new Date().toISOString() }),
-  }));
+  const stazione = await getStazioneById(stationId);
+  if (stazione) {
+    await dynamo.send(new PutItemCommand({
+      TableName: TABLE_NAME,
+      Item: marshall({ ...stazione, lastSeen: new Date().toISOString() }),
+    }));
+  }
 
-  // URL che l'utente raggiungerà scansionando il QR
   const qrUrl = `${APP_URL}/timbratura?s=${stationId}&t=${qrToken}&exp=${expiresAt}`;
-
   return json(200, { qrUrl, expiresAt });
 }
 
@@ -209,12 +225,11 @@ function verificaJwtStazione(event: APIGatewayProxyEvent): { stationId: string; 
 
   try {
     const [header, body, sign] = auth.slice(7).split('.');
-    // Ricalcola la firma e confronta — previene la manomissione del token
     const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
     if (sign !== expected) return null;
 
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null; // token scaduto
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
 
     return { stationId: payload.stationId, codice: payload.codice };
   } catch {

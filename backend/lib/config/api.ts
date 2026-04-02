@@ -56,6 +56,7 @@ export class ApiConfig extends Construct {
     me.addResource('position').addMethod('POST',    new apigateway.LambdaIntegration(handler), noAuth); // Aggiorna posizione
 
     const stazioneId = stazioni.addResource('{id}');
+    stazioneId.addMethod('GET',    new apigateway.LambdaIntegration(handler), cognitoOpts); // Dettaglio stazione (manager)
     stazioneId.addMethod('DELETE', new apigateway.LambdaIntegration(handler), cognitoOpts); // Elimina stazione (manager)
   }
 

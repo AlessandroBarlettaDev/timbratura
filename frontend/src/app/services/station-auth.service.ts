@@ -5,9 +5,9 @@ import { environment } from '../environments/environment';
 
 // Dati della stazione salvati in localStorage dopo il login
 interface StazioneInfo {
-  stationId: string;
-  nome:      string;
-  codice:    string;
+  stationId:   string;
+  descrizione: string;
+  codice:      string;
 }
 
 const TOKEN_KEY   = 'station_token';
