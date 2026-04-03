@@ -34,6 +34,8 @@ export class BackendStack extends cdk.Stack {
       environment: {
         USER_POOL_ID:        cognito.userPool.userPoolId,
         WEBAUTHN_TABLE_NAME: dynamo.webAuthnTable.tableName,
+        RESEND_API_KEY:      process.env.RESEND_API_KEY ?? '',
+        APP_URL:             appUrl,
       },
     });
 
@@ -75,6 +77,7 @@ export class BackendStack extends cdk.Stack {
       runtime: Runtime.NODEJS_22_X,
       entry:   path.join(__dirname, 'lambda/stations-handler.ts'),
       handler: 'handler',
+      timeout: cdk.Duration.seconds(10),
       environment: {
         STAZIONI_TABLE_NAME: dynamo.stazioniTable.tableName,
         // Chiave segreta per firmare i JWT delle stazioni e i token QR
@@ -93,6 +96,8 @@ export class BackendStack extends cdk.Stack {
       environment: {
         TIMBRATURE_TABLE_NAME: dynamo.timbratureTable.tableName,
         WEBAUTHN_TABLE_NAME:   dynamo.webAuthnTable.tableName,
+        STAZIONI_TABLE_NAME:   dynamo.stazioniTable.tableName,
+        USER_POOL_ID:          cognito.userPool.userPoolId,
         JWT_SECRET:            'timbratura-stazioni-secret-changeme',
         RP_ID:                 rpId,
         RP_ORIGIN:             appUrl,
@@ -100,6 +105,9 @@ export class BackendStack extends cdk.Stack {
     });
     dynamo.timbratureTable.grantReadWriteData(timbratureHandler);
     dynamo.webAuthnTable.grantReadWriteData(timbratureHandler);
+    dynamo.stazioniTable.grantReadData(timbratureHandler);
+    // Permesso per leggere nome/cognome del dipendente da Cognito al momento della timbratura
+    cognito.userPool.grant(timbratureHandler, 'cognito-idp:AdminGetUser');
 
     // API Gateway
     const api = new ApiConfig(this, 'Api', { userPool: cognito.userPool });

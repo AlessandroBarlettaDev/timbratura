@@ -28,6 +28,7 @@
     "@types/bcryptjs": "^2.4.6",
     "aws-cdk-lib": "^2.244.0",
     "bcryptjs": "^3.0.3",
-    "constructs": "^10.5.0"
+    "constructs": "^10.5.0",
+    "resend": "^6.10.0"
   }
 }

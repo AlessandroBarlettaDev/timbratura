@@ -19,30 +19,70 @@
   <!-- Pannello contenuto -->
   <main class="content-panel">
 
-    <!-- ── PROFILO MANAGER (usa stesso template dettaglio utente) ── -->
-    @if (showProfile) {
-      <button class="btn-back" (click)="showProfile = false; timbrature = []">← Indietro</button>
-      <div class="detail-header">
-        <h2 class="panel-title">Il mio profilo</h2>
-      </div>
-      <div class="detail-grid">
-        <span class="detail-label">Nome</span>    <span>{{ authService.utente()?.nome }}</span>
-        <span class="detail-label">Cognome</span> <span>{{ authService.utente()?.cognome }}</span>
-        <span class="detail-label">Email</span>   <span>{{ authService.utente()?.email }}</span>
-      </div>
-
-      <ng-container *ngTemplateOutlet="tabellaTimbrature"></ng-container>
-    }
-
     <!-- ── DASHBOARD ── -->
-    @if (!showProfile && activeSection === 'dashboard') {
-      <h2 class="panel-title">Dashboard</h2>
-      <p class="empty-state">In costruzione.</p>
+    @if (activeSection === 'dashboard') {
+      <div class="panel-header">
+        <h2 class="panel-title">Oggi — {{ dashboardAggiornatoAlle ? 'aggiornato alle ' + dashboardAggiornatoAlle : '' }}</h2>
+        <button class="btn-detail-action" (click)="loadDashboard()">↻ Aggiorna</button>
+      </div>
+
+      @if (dashboardLoading) {
+        <div class="spinner-container"><div class="spinner"></div></div>
+      } @else if (dashboardStazioni.length === 0) {
+        <p class="empty-state">Nessuna stazione configurata.</p>
+      } @else {
+        @for (s of dashboardStazioni; track s.stationId) {
+          <div class="dashboard-station-card">
+            <div class="dashboard-station-header">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span class="dashboard-station-name">{{ s.descrizione }}</span>
+                <span class="badge" [class.badge-active]="s.isActive" [class.badge-inactive]="!s.isActive">
+                  {{ s.isActive ? 'Attiva' : 'Inattiva' }}
+                </span>
+              </div>
+              <div class="dashboard-station-count">
+                <span class="dashboard-count-number">{{ s.presenti }}</span>
+                <span class="dashboard-count-label">presenti</span>
+              </div>
+            </div>
+
+            @if (s.timbrature.length > 0) {
+              <table class="data-table" style="margin-top:12px;">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Nome</th>
+                    <th>Cognome</th>
+                    <th>Ora</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (t of s.timbrature; track t.timestamp) {
+                    <tr>
+                      <td>
+                        <span class="badge" [class.badge-active]="t.tipo === 'entrata'" [class.badge-inactive]="t.tipo === 'uscita'">
+                          {{ t.tipo | titlecase }}
+                        </span>
+                      </td>
+                      <td>{{ t.nome || '—' }}</td>
+                      <td>{{ t.cognome || '—' }}</td>
+                      <td>{{ formatTimestamp(t.timestamp).ora }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <p style="color:#aaa; font-size:13px; margin-top:12px;">Nessuna timbratura oggi.</p>
+            }
+          </div>
+        }
+      }
     }
 
     <!-- ── UTENTI ── -->
-    @if (!showProfile && activeSection === 'utenti') {
+    @if (activeSection === 'utenti') {
 
+      <!-- Lista utenti -->
       @if (!selectedUser) {
         <div class="panel-header">
           <h2 class="panel-title">Utenti</h2>
@@ -68,6 +108,7 @@
         }
       }
 
+      <!-- Dettagli utente selezionato -->
       @if (selectedUser) {
         <button class="btn-back" (click)="backToList()">← Torna alla lista</button>
         <div class="detail-header">
@@ -106,7 +147,7 @@
     }
 
     <!-- ── STAZIONI ── -->
-    @if (!showProfile && activeSection === 'stazioni') {
+    @if (activeSection === 'stazioni') {
 
       @if (!selectedStazione) {
         <div class="panel-header">
@@ -169,10 +210,32 @@
 <!-- ── TEMPLATE CONDIVISO: TABELLA TIMBRATURE ── -->
 <ng-template #tabellaTimbrature>
   <div style="margin-top: 36px;">
-    <div class="panel-header" style="margin-bottom: 16px;">
+    <div class="panel-header" style="margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
       <h3 class="panel-title" style="font-size: 16px;">Timbrature</h3>
-      <input type="month" [(ngModel)]="meseSelezionato" (change)="cambiaMese()"
-        style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; outline: none;">
+      <div class="timbrature-toolbar">
+
+        <!-- Selettore anno -->
+        <div class="period-control">
+          <button type="button" class="period-arrow" (click)="annoPrecedente()">◀</button>
+          <span class="period-value" style="min-width: 56px;">{{ annoSelezionato }}</span>
+          <button type="button" class="period-arrow" (click)="annoSuccessivo()">▶</button>
+        </div>
+
+        <!-- Selettore mese — nascosto quando si visualizza l'anno intero -->
+        @if (meseSelezionato != null) {
+          <div class="period-control">
+            <button type="button" class="period-arrow" (click)="mesePrecedente()">◀</button>
+            <span class="period-value">{{ meseLabel }}</span>
+            <button type="button" class="period-arrow" (click)="meseSuccessivo()">▶</button>
+          </div>
+          <button class="btn-detail-action" (click)="deselezionaMese()">Anno intero</button>
+        } @else {
+          <!-- Quando si vede l'anno intero, offre di tornare al mese corrente -->
+          <button class="btn-detail-action" (click)="selezionaMeseCorrente()">Mese corrente</button>
+        }
+
+        <button class="btn-detail-action" (click)="scaricaTimbratureExcel()" [disabled]="timbrature.length === 0">↓ Excel</button>
+      </div>
     </div>
     @if (timbratureLoading) {
       <div class="spinner-container" style="margin-top: 20px;"><div class="spinner"></div></div>
@@ -200,7 +263,7 @@
         </tbody>
       </table>
     } @else {
-      <p class="empty-state">Nessuna timbratura per {{ meseSelezionato }}.</p>
+      <p class="empty-state">Nessuna timbratura per {{ periodoLabel }}.</p>
     }
   </div>
 </ng-template>

@@ -7,7 +7,9 @@ import {
   AdminUpdateUserAttributesCommand,
   AdminDeleteUserCommand,
   ListUsersCommand,
+  MessageActionType,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { sendWelcomeEmail } from './custom-message';
 import { DynamoDBClient, QueryCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { getJwtClaims, isManagerClaims } from './auth';
@@ -17,6 +19,7 @@ const cognitoClient = new CognitoIdentityProviderClient({});
 const dynamoClient  = new DynamoDBClient({});
 const USER_POOL_ID    = process.env.USER_POOL_ID!;
 const WEBAUTHN_TABLE  = process.env.WEBAUTHN_TABLE_NAME!;
+const APP_URL         = process.env.APP_URL ?? 'http://localhost:4200';
 
 // Punto di ingresso — API Gateway chiama questa funzione per ogni richiesta su /users
 export const handler = async (event: APIGatewayProxyEvent) => {
@@ -30,9 +33,15 @@ export const handler = async (event: APIGatewayProxyEvent) => {
     return await markBiometricsRegistered(claims);
   }
 
-  if (!isManagerClaims(claims)) return json(403, 'Accesso negato');
+  const userId          = event.pathParameters?.id;
+  const currentUsername = claims?.['cognito:username'];
 
-  const userId = event.pathParameters?.id;
+  // Self-access: il dipendente può leggere il proprio profilo
+  if (event.httpMethod === 'GET' && userId && userId === currentUsername) {
+    return await getEmployee(userId);
+  }
+
+  if (!isManagerClaims(claims)) return json(403, 'Accesso negato');
 
   switch (event.httpMethod) {
     case 'POST':   return await createEmployee(event);
@@ -56,13 +65,20 @@ async function createEmployee(event: APIGatewayProxyEvent) {
   const groupName = ruolo === 'manager' ? 'manager' : 'employee';
 
   const tempPassword = `Tmp_${Math.random().toString(36).slice(2, 10)}!A1`;
-  console.log(`[NUOVO UTENTE] email: ${email} | password temporanea: ${tempPassword}`);
+
+  // Invia email di benvenuto tramite Resend
+  const emailError = await sendWelcomeEmail(email, nome, cognome, tempPassword, APP_URL);
+  if (emailError) {
+    console.error('[RESEND] Errore invio email:', emailError);
+    return json(500, 'Errore durante l\'invio dell\'email di benvenuto');
+  }
 
   try {
     await cognitoClient.send(new AdminCreateUserCommand({
-      UserPoolId: USER_POOL_ID,
-      Username: email,
+      UserPoolId:    USER_POOL_ID,
+      Username:      email,
       TemporaryPassword: tempPassword,
+      MessageAction: MessageActionType.SUPPRESS,  // email gestita da Resend
       UserAttributes: [
         { Name: 'email',                    Value: email },
         { Name: 'given_name',               Value: nome },

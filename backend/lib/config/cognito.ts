@@ -2,8 +2,7 @@ import * as cdk from 'aws-cdk-lib/core';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 
-
-
+// Configurazione di Cognito per la gestione degli utenti e dei gruppi
 export class CognitoConfig extends Construct {
     public readonly userPool: cognito.UserPool;
     public readonly userPoolClient: cognito.UserPoolClient;
@@ -13,6 +12,7 @@ export class CognitoConfig extends Construct {
     constructor(scope: Construct, id: string) {
         super(scope, id);
 
+        // Crea User Pool con attributi personalizzati
         this.userPool = new cognito.UserPool(this, 'UserPool', {
             userPoolName: 'TimbraturaUserPool',
             selfSignUpEnabled: false,
@@ -35,6 +35,7 @@ export class CognitoConfig extends Construct {
             }
         });
 
+        // Crea User Pool Client con flussi di autenticazione abilitati per password e SRP (SRP = Server Side Password Verification) (necessario per l'autenticazione lato frontend)
         this.userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
             userPool: this.userPool,
             authFlows: {
@@ -45,12 +46,14 @@ export class CognitoConfig extends Construct {
             }
         });
 
-        // Crea gruppi
+        // Crea gruppi per manager e dipendenti
         this.managerGroup = new cognito.CfnUserPoolGroup(this, 'ManagerGroup', {
             groupName: 'manager',
             userPoolId: this.userPool.userPoolId,
             description: 'Manager users'
         });
+        // Il gruppo "employee" è stato creato per i dipendenti, ma al momento non viene utilizzato direttamente nel codice. 
+        // Le verifiche dei ruoli e dei permessi vengono gestite principalmente tramite l'attributo personalizzato "role" degli utenti. 
         this.employeeGroup = new cognito.CfnUserPoolGroup(this, 'EmployeeGroup', {
             groupName: 'employee',
             userPoolId: this.userPool.userPoolId,

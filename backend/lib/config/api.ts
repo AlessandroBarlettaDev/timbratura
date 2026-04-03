@@ -89,10 +89,13 @@ export class ApiConfig extends Construct {
 
     const timbrature = this.api.root.addResource('timbrature');
     timbrature.addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth);       // Registra timbratura (biometria + QR)
-    timbrature.addMethod('GET',  new apigateway.LambdaIntegration(handler), cognitoOpts);  // Lista timbrature (manager, per data)
+    timbrature.addMethod('GET',  new apigateway.LambdaIntegration(handler), cognitoOpts);  // Timbrature di un dipendente (manager)
 
     timbrature.addResource('me')
       .addMethod('GET', new apigateway.LambdaIntegration(handler), cognitoOpts);           // Timbrature del dipendente loggato
+
+    timbrature.addResource('dashboard')
+      .addMethod('GET', new apigateway.LambdaIntegration(handler), cognitoOpts);           // Dashboard odierna aggregata per stazione (manager)
   }
 
   // Aggiunge tutte le rotte /users protette, collegate alla stessa lambda

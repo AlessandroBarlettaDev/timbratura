@@ -29,6 +29,7 @@ export class ApiService {
   // --- Timbrature ---
   registraTimbratura(data: any): Observable<any>              { return this.http.post(`${this.apiUrl}/timbrature`, data); }
   getMieTimbrature(mese?: string): Observable<any>            { return this.http.get(`${this.apiUrl}/timbrature/me${mese ? '?mese=' + mese : ''}`); }
+  getDashboardOggi(): Observable<any>                         { return this.http.get(`${this.apiUrl}/timbrature/dashboard`); }
   getTimbratureUtente(userId: string, mese?: string): Observable<any> {
     const params = `?userId=${userId}${mese ? '&mese=' + mese : ''}`;
     return this.http.get(`${this.apiUrl}/timbrature${params}`);

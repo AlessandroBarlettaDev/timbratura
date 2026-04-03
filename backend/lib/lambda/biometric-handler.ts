@@ -108,7 +108,7 @@ async function completeRegistration(userId: string, event: APIGatewayProxyEvent)
     await dynamo.send(new PutItemCommand({
       TableName: TABLE_NAME,
       Item: marshall({
-        credentialId: Buffer.from(credential.id).toString('base64url'),
+        credentialId: credential.id,
         userId,
         publicKey:    Buffer.from(credential.publicKey).toString('base64'),
         counter:      credential.counter,
@@ -162,7 +162,7 @@ export async function verifyAssertion(assertion: any, sessionId: string): Promis
   if (Date.now() / 1000 > sessionRecord.expiresAt) throw new Error('Challenge scaduta');
 
   // Recupera la credenziale pubblica dell'utente
-  const credentialId  = Buffer.from(assertion.id, 'base64url').toString('base64url');
+  const credentialId = assertion.id;
   const credRecord    = await getItem(credentialId);
   if (!credRecord) throw new Error('Credenziale non trovata');
 

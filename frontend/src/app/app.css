@@ -72,10 +72,25 @@ input:focus { border-color: #000; }
 .btn-detail-danger { border-color: #e53935; color: #e53935; }
 .btn-detail-danger:hover { background: #e53935; color: #fff; }
 
+/* ── Filtro timbrature ── */
+.timbrature-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.period-control { display: flex; align-items: center; gap: 8px; background: #fafafa; border: 1px solid #ddd; border-radius: 12px; padding: 4px 8px; }
+.period-arrow { width: 28px; height: 28px; border: 1px solid #ddd; background: #fff; border-radius: 8px; cursor: pointer; font-size: 12px; line-height: 1; }
+.period-arrow:hover { background: #f3f3f3; }
+.period-value { min-width: 120px; text-align: center; font-size: 13px; font-weight: 600; color: #333; }
+
 /* ── Badge stato stazione ── */
 .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
 .badge-active   { background: #e8f5e9; color: #2e7d32; }
 .badge-inactive { background: #fce4ec; color: #c62828; }
+
+/* ── Dashboard stazione card ── */
+.dashboard-station-card { background: #fafafa; border: 1px solid #eee; border-radius: 16px; padding: 20px 24px; margin-bottom: 16px; }
+.dashboard-station-header { display: flex; align-items: center; justify-content: space-between; }
+.dashboard-station-name { font-size: 16px; font-weight: 600; }
+.dashboard-station-count { display: flex; flex-direction: column; align-items: center; background: #000; color: #fff; border-radius: 12px; padding: 8px 16px; min-width: 64px; }
+.dashboard-count-number { font-size: 22px; font-weight: 700; line-height: 1; }
+.dashboard-count-label { font-size: 10px; font-weight: 500; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
 
 /* ── Brand ── */
 .brand { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #000; }

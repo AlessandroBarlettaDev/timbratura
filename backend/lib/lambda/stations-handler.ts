@@ -55,7 +55,7 @@ async function createStazione(event: APIGatewayProxyEvent) {
   const stationId = uuidv4();
 
   // Hash della password
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, 8);
 
   await dynamo.send(new PutItemCommand({
     TableName: TABLE_NAME,
@@ -135,7 +135,7 @@ async function loginStazione(event: APIGatewayProxyEvent) {
   if (!codice || !password) return json(400, 'codice e password sono obbligatori');
 
   const stazione = await getStazioneByCodice(codice);
-  if (!stazione) return json(401, 'Credenziali non valide');
+  if (!stazione || !stazione.passwordHash) return json(401, 'Credenziali non valide');
 
   const passwordOk = await bcrypt.compare(password, stazione.passwordHash);
   if (!passwordOk) return json(401, 'Credenziali non valide');

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet, TitleCasePipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
@@ -12,13 +12,12 @@ type Section = 'dashboard' | 'utenti' | 'stazioni';
   templateUrl: './dashboard-manager.html',
   styleUrl: '../../app.css',
 })
-export class DashboardManager {
+export class DashboardManager implements OnInit {
   activeSection: Section = 'dashboard';
   utenti:   any[] = [];
   stazioni: any[] = [];
   selectedUser:     any = null;
   selectedStazione: any = null;
-  showProfile  = false;
   isLoading    = false;
 
   // --- Stato modale nuovo utente ---
@@ -38,29 +37,38 @@ export class DashboardManager {
   stazioneToDelete:   any   = null;
   showDeleteStazioneConfirm = false;
 
+  // --- Dashboard odierna ---
+  dashboardStazioni: any[]  = [];
+  dashboardLoading          = false;
+  dashboardAggiornatoAlle   = '';
+
   // --- Timbrature (usato sia nel profilo manager che nel dettaglio utente) ---
   timbrature:    any[]  = [];
-  meseSelezionato       = new Date().toISOString().slice(0, 7);  // YYYY-MM
+  readonly mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+  annoSelezionato = new Date().getFullYear();
+  meseSelezionato: number | null = new Date().getMonth() + 1;
   timbratureLoading     = false;
 
   constructor(private apiService: ApiService, public authService: AuthService, private cdr: ChangeDetectorRef) {}
+
+  ngOnInit() { this.loadDashboard(); }
 
   // --- Navigazione ---
   setSection(section: Section) {
     this.selectedUser     = null;
     this.selectedStazione = null;
-    this.showProfile      = false;
     this.activeSection    = section;
+    if (section === 'dashboard') this.loadDashboard();
     if (section === 'utenti'   && this.utenti.length   === 0) this.loadUtenti();
     if (section === 'stazioni' && this.stazioni.length === 0) this.loadStazioni();
   }
 
-  // Apre il profilo del manager loggato (usa template utente condiviso)
+  // Apre il profilo del manager loggato come se fosse un utente selezionato
   apriProfilo() {
-    this.selectedUser = null;
-    this.showProfile  = true;
     const me = this.authService.utente();
-    if (me) this.loadTimbrature(me.userId);
+    if (!me) return;
+    this.activeSection = 'utenti';
+    this.selectUser({ id: me.userId });
   }
 
   // --- Gestione utenti ---
@@ -68,7 +76,7 @@ export class DashboardManager {
     this.apiService.getUser(user.id).subscribe({
       next: (data) => {
         this.selectedUser = data;
-        this.meseSelezionato = new Date().toISOString().slice(0, 7);
+        this.resetPeriodoTimbrature();
         this.loadTimbrature(data.id);
         this.cdr.detectChanges();
       },
@@ -135,19 +143,129 @@ export class DashboardManager {
     });
   }
 
+  // --- Dashboard odierna ---
+  loadDashboard() {
+    this.dashboardLoading = true;
+    this.apiService.getDashboardOggi().subscribe({
+      next: (data) => {
+        this.dashboardStazioni      = data;
+        this.dashboardLoading       = false;
+        this.dashboardAggiornatoAlle = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        this.cdr.detectChanges();
+      },
+      error: (err) => { console.error('Errore dashboard:', err); this.dashboardLoading = false; this.cdr.detectChanges(); },
+    });
+  }
+
   // --- Timbrature ---
   loadTimbrature(userId: string) {
     this.timbratureLoading = true;
-    this.apiService.getTimbratureUtente(userId, this.meseSelezionato).subscribe({
+    this.apiService.getTimbratureUtente(userId, this.getPeriodoApi()).subscribe({
       next: (data) => { this.timbrature = data; this.timbratureLoading = false; this.cdr.detectChanges(); },
       error: (err)  => { console.error('Errore caricamento timbrature:', err); this.timbratureLoading = false; this.cdr.detectChanges(); },
     });
   }
 
-  // Ricarica le timbrature quando il manager cambia mese
-  cambiaMese() {
-    const userId = this.showProfile ? this.authService.utente()?.userId : this.selectedUser?.id;
+  cambiaPeriodo() {
+    const userId = this.selectedUser?.id;
     if (userId) this.loadTimbrature(userId);
+  }
+
+  annoPrecedente() { this.annoSelezionato--; this.cambiaPeriodo(); }
+  annoSuccessivo() { this.annoSelezionato++; this.cambiaPeriodo(); }
+
+  mesePrecedente() {
+    if (this.meseSelezionato == null) {
+      this.meseSelezionato = 12;
+      this.cambiaPeriodo();
+      return;
+    }
+    if (this.meseSelezionato === 1) {
+      this.meseSelezionato = 12;
+      this.annoSelezionato--;
+    } else {
+      this.meseSelezionato--;
+    }
+    this.cambiaPeriodo();
+  }
+
+  meseSuccessivo() {
+    if (this.meseSelezionato == null) {
+      this.meseSelezionato = 1;
+      this.cambiaPeriodo();
+      return;
+    }
+    if (this.meseSelezionato === 12) {
+      this.meseSelezionato = 1;
+      this.annoSelezionato++;
+    } else {
+      this.meseSelezionato++;
+    }
+    this.cambiaPeriodo();
+  }
+
+  deselezionaMese() {
+    this.meseSelezionato = null;
+    this.cambiaPeriodo();
+  }
+
+  selezionaMeseCorrente() {
+    this.meseSelezionato = new Date().getMonth() + 1;
+    this.cambiaPeriodo();
+  }
+
+  get meseLabel(): string {
+    if (this.meseSelezionato == null) return 'Tutto l\'anno';
+    return this.mesi[this.meseSelezionato - 1];
+  }
+
+  get periodoLabel(): string {
+    return this.meseSelezionato == null
+      ? `${this.annoSelezionato}`
+      : `${this.meseLabel} ${this.annoSelezionato}`;
+  }
+
+  scaricaTimbratureExcel() {
+    if (this.timbrature.length === 0) return;
+
+    const intestazione = ['Tipo', 'Data', 'Ora', 'Stazione'];
+    const righe = this.timbrature.map((t) => {
+      const f = this.formatTimestamp(t.timestamp);
+      return [
+        String(t.tipo ?? ''),
+        f.data,
+        f.ora,
+        String(t.stationId ?? ''),
+      ];
+    });
+
+    const csv = ['\ufeff' + intestazione.join(';'), ...righe.map(r => r.map(v => this.escapeCsv(v)).join(';'))].join('\n');
+    const blob = new Blob([csv], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    const mm   = this.meseSelezionato ? `-${String(this.meseSelezionato).padStart(2, '0')}` : '-annuale';
+    // Nome utente dal profilo manager o dal dipendente selezionato
+    const nomeUtente = `${this.selectedUser?.given_name ?? ''}-${this.selectedUser?.family_name ?? ''}`;
+    const slug = nomeUtente.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    link.href = URL.createObjectURL(blob);
+    link.download = `timbrature-${slug}-${this.annoSelezionato}${mm}.xls`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  private getPeriodoApi(): string {
+    if (this.meseSelezionato == null) return String(this.annoSelezionato);
+    return `${this.annoSelezionato}-${String(this.meseSelezionato).padStart(2, '0')}`;
+  }
+
+  private resetPeriodoTimbrature() {
+    const adesso = new Date();
+    this.annoSelezionato = adesso.getFullYear();
+    this.meseSelezionato = adesso.getMonth() + 1;
+  }
+
+  private escapeCsv(value: string): string {
+    const escaped = value.replace(/"/g, '""');
+    return `"${escaped}"`;
   }
 
   formatTimestamp(ts: string): { data: string; ora: string } {

@@ -89,8 +89,8 @@ In una fase successiva, il pool era configurato in modalità `DEVELOPER` (SES). 
 
 **Soluzioni**
 
-1. **Usare `COGNITO_DEFAULT`** *(scelta attuale)*  
-   Cognito gestisce l'invio direttamente, senza SES e senza restrizioni sandbox. Limite: 50 email/giorno, sufficiente per sviluppo e tesi.  
+1. **Usare `COGNITO_DEFAULT`**  
+   Cognito gestisce l'invio direttamente, senza SES e senza restrizioni sandbox. Limite: 50 email/giorno.  
    Configurazione CDK: `email: cognito.UserPoolEmail.withCognito()`
 
 2. **Verificare ogni indirizzo destinatario in SES** *(solo per test)*  
@@ -103,3 +103,19 @@ In una fase successiva, il pool era configurato in modalità `DEVELOPER` (SES). 
    Dal pannello SES → Account dashboard → "Request production access".  
    Rimuove il limite sandbox e permette l'invio verso qualsiasi indirizzo.  
    Richiede approvazione AWS (1–2 giorni lavorativi).
+
+4. **Provider email esterno — Resend** *(soluzione adottata)*  
+   L'email viene inviata direttamente dalla Lambda tramite [Resend](https://resend.com), bypassando completamente SES e le sue restrizioni sandbox. Cognito viene configurato con `MessageAction: SUPPRESS` per non inviare la propria email.
+
+   **Flusso:**
+   - La Lambda genera la password temporanea
+   - Invia l'email via Resend (mittente `onboarding@resend.dev`, free tier: 3.000 email/mese)
+   - Chiama `AdminCreateUser` con `MessageAction: SUPPRESS`
+
+   **Configurazione:**
+   La Lambda richiede la variabile d'ambiente `RESEND_API_KEY`. Deve essere esportata nel terminale prima del deploy:
+   ```bash
+   export RESEND_API_KEY=re_xxxxxxxxxxxx
+   ./deploy.sh
+   ```
+   La chiave viene passata alla Lambda dal CDK tramite `process.env.RESEND_API_KEY`.
