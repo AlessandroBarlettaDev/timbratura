@@ -6,7 +6,7 @@ export class AuthService {
     // Usiamo i Signals per rendere i dati reattivi nei componenti
     currentUser = signal<any>(null);
     userGroups = signal<string[]>([]);
-    utente = signal<{ nome: string; cognome: string; email: string } | null>(null);
+    utente = signal<{ userId: string; nome: string; cognome: string; email: string } | null>(null);
 
     constructor() {
         // Controlla la sessione all'avvio dell'app
@@ -57,6 +57,7 @@ export class AuthService {
 
                 // Estraiamo nome, cognome ed email dal token — disponibili ovunque nell'app
                 this.utente.set({
+                    userId:  user.username,
                     nome:    payload?.['given_name']  as string ?? '',
                     cognome: payload?.['family_name'] as string ?? '',
                     email:   payload?.['email']       as string ?? '',

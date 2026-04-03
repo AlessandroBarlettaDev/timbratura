@@ -9,6 +9,9 @@ export class DynamoDbConfig extends Construct {
   // Tabella che memorizza le stazioni di timbratura
   public readonly stazioniTable: dynamodb.Table;
 
+  // Tabella che memorizza le timbrature (entrate/uscite) dei dipendenti
+  public readonly timbratureTable: dynamodb.Table;
+
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
@@ -51,6 +54,29 @@ export class DynamoDbConfig extends Construct {
 
     new cdk.CfnOutput(this, 'StazioniTableName', {
       value: this.stazioniTable.tableName,
+    });
+
+    this.timbratureTable = new dynamodb.Table(this, 'Timbrature', {
+      tableName: 'Timbrature',
+
+      // PK: userId — tutte le timbrature di un dipendente sono raggruppate insieme
+      // SK: timestamp ISO — permette query per intervallo di date con begins_with
+      partitionKey: { name: 'userId',    type: dynamodb.AttributeType.STRING },
+      sortKey:      { name: 'timestamp', type: dynamodb.AttributeType.STRING },
+
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // GSI su data (YYYY-MM-DD) — il manager usa questo indice per leggere tutte
+    // le timbrature di un giorno specifico, indipendentemente dall'utente
+    this.timbratureTable.addGlobalSecondaryIndex({
+      indexName:    'data-index',
+      partitionKey: { name: 'data',      type: dynamodb.AttributeType.STRING },
+      sortKey:      { name: 'timestamp', type: dynamodb.AttributeType.STRING },
+    });
+
+    new cdk.CfnOutput(this, 'TimbratureTableName', {
+      value: this.timbratureTable.tableName,
     });
   }
 }

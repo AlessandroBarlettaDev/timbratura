@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent } from 'aws-lambda';
 import { DynamoDBClient, PutItemCommand, GetItemCommand, QueryCommand, DeleteItemCommand, ScanCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { getJwtClaims, isManagerClaims } from './auth';
 
@@ -53,15 +54,16 @@ async function createStazione(event: APIGatewayProxyEvent) {
   const codice    = 'STZ-' + crypto.randomBytes(3).toString('hex').toUpperCase();
   const stationId = uuidv4();
 
-  // La password è salvata in chiaro per permettere al manager di visualizzarla nella dashboard
-  // NOTA: in un sistema reale usare bcrypt o AWS Secrets Manager
+  // Hash della password
+  const passwordHash = await bcrypt.hash(password, 10);
+
   await dynamo.send(new PutItemCommand({
     TableName: TABLE_NAME,
     Item: marshall({
       stationId,
       descrizione,
       codice,
-      password,
+      passwordHash,
       lat:       null,
       lng:       null,
       lastSeen:  null,
@@ -107,7 +109,7 @@ async function getStazioneDettaglio(stationId: string) {
     stationId:   s.stationId,
     descrizione: s.descrizione,
     codice:      s.codice,
-    password:    s.password,
+    // la password non viene mai restituita — è salvata come hash bcrypt
     lat:         s.lat,
     lng:         s.lng,
     lastSeen:    s.lastSeen,
@@ -135,8 +137,8 @@ async function loginStazione(event: APIGatewayProxyEvent) {
   const stazione = await getStazioneByCodice(codice);
   if (!stazione) return json(401, 'Credenziali non valide');
 
-  // Confronto diretto — password salvata in plaintext
-  if (stazione.password !== password) return json(401, 'Credenziali non valide');
+  const passwordOk = await bcrypt.compare(password, stazione.passwordHash);
+  if (!passwordOk) return json(401, 'Credenziali non valide');
 
   const token = generaJwt({ stationId: stazione.stationId, codice: stazione.codice });
 

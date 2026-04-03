@@ -1,0 +1,35 @@
+<div class="centered-container">
+  <div class="login-card" style="max-width: 360px; text-align: center;">
+
+    <p class="brand-login">TIMBRATURA</p>
+
+    @if (step === 'verifica') {
+      <div class="spinner-container"><div class="spinner"></div></div>
+    }
+
+    @if (step === 'biometrica') {
+      <p style="font-size: 48px; margin-bottom: 12px;">👆</p>
+      <h2 style="margin-bottom: 12px;">Conferma identità</h2>
+      <p style="color: #666; font-size: 14px; margin-bottom: 28px;">
+        Usa impronta digitale o Face ID per timbrare
+      </p>
+      @if (errore) { <p class="modal-error">{{ errore }}</p> }
+      <button class="btn-login" [disabled]="caricamento" (click)="timbra()">
+        {{ caricamento ? 'Attendere...' : 'Timbra con biometria' }}
+      </button>
+    }
+
+    @if (step === 'successo') {
+      <p style="font-size: 64px; margin-bottom: 8px;">{{ tipo === 'entrata' ? '✅' : '👋' }}</p>
+      <h2 style="margin-bottom: 8px; text-transform: capitalize;">{{ tipo }}!</h2>
+      <p style="color: #666; font-size: 14px;">Timbratura registrata alle {{ orario }}</p>
+    }
+
+    @if (step === 'errore') {
+      <p style="font-size: 48px; margin-bottom: 12px;">⚠️</p>
+      <h2 style="margin-bottom: 12px;">Impossibile timbrare</h2>
+      <p style="color: #666; font-size: 14px;">{{ errore }}</p>
+    }
+
+  </div>
+</div>

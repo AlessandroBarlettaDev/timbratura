@@ -9,7 +9,7 @@
     <button class="nav-item" [class.active]="activeSection === 'stazioni'"  (click)="setSection('stazioni')">Stazioni</button>
 
     <div class="sidebar-footer">
-      <button class="sidebar-user-btn" (click)="showProfile = !showProfile">
+      <button class="sidebar-user-btn" (click)="apriProfilo()">
         {{ authService.utente()?.nome }} {{ authService.utente()?.cognome }}
       </button>
       <button class="btn-logout" (click)="authService.logout()">Logout</button>
@@ -19,21 +19,28 @@
   <!-- Pannello contenuto -->
   <main class="content-panel">
 
+    <!-- ── PROFILO MANAGER (usa stesso template dettaglio utente) ── -->
     @if (showProfile) {
-      <button class="btn-back" (click)="showProfile = false">← Indietro</button>
-      <h2 class="panel-title">Il mio profilo</h2>
+      <button class="btn-back" (click)="showProfile = false; timbrature = []">← Indietro</button>
+      <div class="detail-header">
+        <h2 class="panel-title">Il mio profilo</h2>
+      </div>
       <div class="detail-grid">
         <span class="detail-label">Nome</span>    <span>{{ authService.utente()?.nome }}</span>
         <span class="detail-label">Cognome</span> <span>{{ authService.utente()?.cognome }}</span>
         <span class="detail-label">Email</span>   <span>{{ authService.utente()?.email }}</span>
       </div>
+
+      <ng-container *ngTemplateOutlet="tabellaTimbrature"></ng-container>
     }
 
+    <!-- ── DASHBOARD ── -->
     @if (!showProfile && activeSection === 'dashboard') {
       <h2 class="panel-title">Dashboard</h2>
       <p class="empty-state">In costruzione.</p>
     }
 
+    <!-- ── UTENTI ── -->
     @if (!showProfile && activeSection === 'utenti') {
 
       @if (!selectedUser) {
@@ -45,13 +52,7 @@
           <div class="spinner-container"><div class="spinner"></div></div>
         } @else if (utenti.length > 0) {
           <table class="data-table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Cognome</th>
-                <th>Email</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Nome</th><th>Cognome</th><th>Email</th></tr></thead>
             <tbody>
               @for (u of utenti; track u.sub) {
                 <tr class="clickable-row" (click)="selectUser(u)">
@@ -77,16 +78,34 @@
           </div>
         </div>
         <div class="detail-grid">
-          <span class="detail-label">Email</span>           <span>{{ selectedUser.email }}</span>
-          <span class="detail-label">Data di nascita</span> <span>{{ selectedUser.birthdate }}</span>
-          <span class="detail-label">Codice fiscale</span>  <span>{{ selectedUser.codice_fiscale }}</span>
-          <span class="detail-label">Data assunzione</span> <span>{{ selectedUser.data_assunzione }}</span>
-          <span class="detail-label">Fine contratto</span>  <span>{{ selectedUser.termine_contratto }}</span>
+          <span class="detail-label">Email</span>              <span>{{ selectedUser.email }}</span>
+          <span class="detail-label">Data di nascita</span>    <span>{{ selectedUser.birthdate || '—' }}</span>
+          <span class="detail-label">Codice fiscale</span>     <span>{{ selectedUser.codice_fiscale || '—' }}</span>
+          <span class="detail-label">Data assunzione</span>    <span>{{ selectedUser.data_assunzione || '—' }}</span>
+          <span class="detail-label">Fine contratto</span>     <span>{{ selectedUser.termine_contratto || '—' }}</span>
+          <span class="detail-label">Password cambiata</span>
+          <span>
+            <span class="badge" [class.badge-active]="selectedUser.password_changed === 'true'" [class.badge-inactive]="selectedUser.password_changed !== 'true'">
+              {{ selectedUser.password_changed === 'true' ? 'Sì' : 'No' }}
+            </span>
+          </span>
+          <span class="detail-label">Biometria registrata</span>
+          <span>
+            <span class="badge" [class.badge-active]="selectedUser.biometrics_reg === 'true'" [class.badge-inactive]="selectedUser.biometrics_reg !== 'true'">
+              {{ selectedUser.biometrics_reg === 'true' ? 'Sì' : 'No' }}
+            </span>
+          </span>
+          <span class="detail-label">Presente ora</span>
+          <span>
+            <span class="badge badge-inactive">—</span>
+          </span>
         </div>
-      }
 
+        <ng-container *ngTemplateOutlet="tabellaTimbrature"></ng-container>
+      }
     }
 
+    <!-- ── STAZIONI ── -->
     @if (!showProfile && activeSection === 'stazioni') {
 
       @if (!selectedStazione) {
@@ -98,14 +117,7 @@
           <div class="spinner-container"><div class="spinner"></div></div>
         } @else if (stazioni.length > 0) {
           <table class="data-table">
-            <thead>
-              <tr>
-                <th>Codice</th>
-                <th>Descrizione</th>
-                <th>Stato</th>
-                <th></th>
-              </tr>
-            </thead>
+            <thead><tr><th>Codice</th><th>Descrizione</th><th>Stato</th><th></th></tr></thead>
             <tbody>
               @for (s of stazioni; track s.stationId) {
                 <tr class="clickable-row" (click)="selectStazione(s)">
@@ -138,7 +150,6 @@
         </div>
         <div class="detail-grid">
           <span class="detail-label">Codice stazione</span> <span><strong>{{ selectedStazione.codice }}</strong></span>
-          <span class="detail-label">Password</span>        <span>{{ selectedStazione.password }}</span>
           <span class="detail-label">Stato</span>
           <span>
             <span class="badge" [class.badge-active]="selectedStazione.isActive" [class.badge-inactive]="!selectedStazione.isActive">
@@ -150,14 +161,53 @@
           <span class="detail-label">Creata il</span>       <span>{{ selectedStazione.createdAt }}</span>
         </div>
       }
-
     }
 
   </main>
-
 </div>
 
-<!-- Modal modifica utente -->
+<!-- ── TEMPLATE CONDIVISO: TABELLA TIMBRATURE ── -->
+<ng-template #tabellaTimbrature>
+  <div style="margin-top: 36px;">
+    <div class="panel-header" style="margin-bottom: 16px;">
+      <h3 class="panel-title" style="font-size: 16px;">Timbrature</h3>
+      <input type="month" [(ngModel)]="meseSelezionato" (change)="cambiaMese()"
+        style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; outline: none;">
+    </div>
+    @if (timbratureLoading) {
+      <div class="spinner-container" style="margin-top: 20px;"><div class="spinner"></div></div>
+    } @else if (timbrature.length > 0) {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Data</th>
+            <th>Ora</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of timbrature; track t.timestamp) {
+            <tr>
+              <td>
+                <span class="badge" [class.badge-active]="t.tipo === 'entrata'" [class.badge-inactive]="t.tipo === 'uscita'">
+                  {{ t.tipo | titlecase }}
+                </span>
+              </td>
+              <td>{{ formatTimestamp(t.timestamp).data }}</td>
+              <td>{{ formatTimestamp(t.timestamp).ora }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <p class="empty-state">Nessuna timbratura per {{ meseSelezionato }}.</p>
+    }
+  </div>
+</ng-template>
+
+<!-- ── MODALI ── -->
+
+<!-- Modifica utente -->
 @if (showEditModal) {
   <div class="modal-overlay" (click)="showEditModal = false">
     <div class="modal-card" (click)="$event.stopPropagation()">
@@ -174,19 +224,19 @@
   </div>
 }
 
-<!-- Dialog conferma eliminazione utente -->
+<!-- Elimina utente -->
 @if (showDeleteConfirm) {
   <div class="modal-overlay" (click)="showDeleteConfirm = false">
     <div class="modal-card" style="max-width:360px; text-align:center;" (click)="$event.stopPropagation()">
       <h2>Elimina utente</h2>
-      <p style="color:#666; margin-bottom:28px;">Sei sicuro di voler eliminare <strong>{{ selectedUser.given_name }} {{ selectedUser.family_name }}</strong>? L'operazione è permanente e non può essere annullata.</p>
+      <p style="color:#666; margin-bottom:28px;">Sei sicuro di voler eliminare <strong>{{ selectedUser.given_name }} {{ selectedUser.family_name }}</strong>? L'operazione è permanente.</p>
       <button class="btn-logout" (click)="confirmDelete()">Sì, elimina definitivamente</button>
       <button class="btn-forgot" (click)="showDeleteConfirm = false">Annulla</button>
     </div>
   </div>
 }
 
-<!-- Dialog conferma eliminazione stazione -->
+<!-- Elimina stazione -->
 @if (showDeleteStazioneConfirm) {
   <div class="modal-overlay" (click)="showDeleteStazioneConfirm = false">
     <div class="modal-card" style="max-width:360px; text-align:center;" (click)="$event.stopPropagation()">
@@ -198,7 +248,7 @@
   </div>
 }
 
-<!-- Modal nuova stazione -->
+<!-- Nuova stazione -->
 @if (showStazioneModal) {
   <div class="modal-overlay" (click)="closeStazioneModal()">
     <div class="modal-card" (click)="$event.stopPropagation()">
@@ -212,12 +262,11 @@
   </div>
 }
 
-<!-- Modal nuovo utente -->
+<!-- Nuovo utente -->
 @if (showModal) {
   <div class="modal-overlay" (click)="closeModal()">
     <div class="modal-card" (click)="$event.stopPropagation()">
       <h2>Nuovo utente</h2>
-
       <div class="form-group"><label>Ruolo</label>
         <div class="switch-container">
           <button class="switch-btn" [class.active]="newUser.ruolo === 'employee'" (click)="newUser.ruolo = 'employee'">Dipendente</button>
@@ -231,10 +280,7 @@
       <div class="form-group"><label>Codice fiscale</label>   <input type="text"  [(ngModel)]="newUser.codice_fiscale"    placeholder="RSSMRA90A01H501U"></div>
       <div class="form-group"><label>Data assunzione</label>  <input type="date"  [(ngModel)]="newUser.data_assunzione"></div>
       <div class="form-group"><label>Fine contratto</label>   <input type="date"  [(ngModel)]="newUser.termine_contratto"></div>
-
-      @if (modalError) {
-        <p class="modal-error">{{ modalError }}</p>
-      }
+      @if (modalError) { <p class="modal-error">{{ modalError }}</p> }
       <button class="btn-login" (click)="addUser()">Crea dipendente</button>
       <button class="btn-forgot" (click)="closeModal()">Annulla</button>
     </div>

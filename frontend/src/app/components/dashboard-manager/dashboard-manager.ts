@@ -1,5 +1,6 @@
 import { Component, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { NgTemplateOutlet, TitleCasePipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/user-auth.service';
 
@@ -7,7 +8,7 @@ type Section = 'dashboard' | 'utenti' | 'stazioni';
 
 @Component({
   selector: 'app-dashboard-manager',
-  imports: [FormsModule],
+  imports: [FormsModule, NgTemplateOutlet, TitleCasePipe],
   templateUrl: './dashboard-manager.html',
   styleUrl: '../../app.css',
 })
@@ -37,9 +38,14 @@ export class DashboardManager {
   stazioneToDelete:   any   = null;
   showDeleteStazioneConfirm = false;
 
+  // --- Timbrature (usato sia nel profilo manager che nel dettaglio utente) ---
+  timbrature:    any[]  = [];
+  meseSelezionato       = new Date().toISOString().slice(0, 7);  // YYYY-MM
+  timbratureLoading     = false;
+
   constructor(private apiService: ApiService, public authService: AuthService, private cdr: ChangeDetectorRef) {}
 
-  // --- Gestione navigazione tra sezioni ---
+  // --- Navigazione ---
   setSection(section: Section) {
     this.selectedUser     = null;
     this.selectedStazione = null;
@@ -49,15 +55,28 @@ export class DashboardManager {
     if (section === 'stazioni' && this.stazioni.length === 0) this.loadStazioni();
   }
 
+  // Apre il profilo del manager loggato (usa template utente condiviso)
+  apriProfilo() {
+    this.selectedUser = null;
+    this.showProfile  = true;
+    const me = this.authService.utente();
+    if (me) this.loadTimbrature(me.userId);
+  }
+
   // --- Gestione utenti ---
   selectUser(user: any) {
     this.apiService.getUser(user.id).subscribe({
-      next: (data) => { this.selectedUser = data; this.cdr.detectChanges(); },
-      error: (err)  => console.error('Errore caricamento utente:', err),
+      next: (data) => {
+        this.selectedUser = data;
+        this.meseSelezionato = new Date().toISOString().slice(0, 7);
+        this.loadTimbrature(data.id);
+        this.cdr.detectChanges();
+      },
+      error: (err) => console.error('Errore caricamento utente:', err),
     });
   }
 
-  backToList() { this.selectedUser = null; }
+  backToList() { this.selectedUser = null; this.timbrature = []; }
 
   openEditModal() {
     this.editUser = {
@@ -73,19 +92,18 @@ export class DashboardManager {
 
   saveEdit() {
     this.apiService.modifyUser(this.selectedUser.id, this.editUser).subscribe({
-      next: ()     => { this.showEditModal = false; this.cdr.detectChanges(); this.selectUser({ id: this.selectedUser.id }); },
+      next: () => { this.showEditModal = false; this.cdr.detectChanges(); this.selectUser({ id: this.selectedUser.id }); },
       error: (err) => console.error('Errore modifica utente:', err),
     });
   }
-
-  confirmDeleteUser() { this.showDeleteConfirm = true; }
 
   confirmDelete() {
     this.apiService.deleteUser(this.selectedUser.id).subscribe({
       next: () => {
         this.showDeleteConfirm = false;
         this.selectedUser = null;
-        this.utenti = [];
+        this.timbrature   = [];
+        this.utenti       = [];
         this.cdr.detectChanges();
         this.loadUtenti();
       },
@@ -115,6 +133,29 @@ export class DashboardManager {
       next: (data) => { this.utenti = data; this.isLoading = false; this.cdr.detectChanges(); },
       error: (err)  => { console.error('Errore caricamento utenti:', err); this.isLoading = false; this.cdr.detectChanges(); },
     });
+  }
+
+  // --- Timbrature ---
+  loadTimbrature(userId: string) {
+    this.timbratureLoading = true;
+    this.apiService.getTimbratureUtente(userId, this.meseSelezionato).subscribe({
+      next: (data) => { this.timbrature = data; this.timbratureLoading = false; this.cdr.detectChanges(); },
+      error: (err)  => { console.error('Errore caricamento timbrature:', err); this.timbratureLoading = false; this.cdr.detectChanges(); },
+    });
+  }
+
+  // Ricarica le timbrature quando il manager cambia mese
+  cambiaMese() {
+    const userId = this.showProfile ? this.authService.utente()?.userId : this.selectedUser?.id;
+    if (userId) this.loadTimbrature(userId);
+  }
+
+  formatTimestamp(ts: string): { data: string; ora: string } {
+    const d = new Date(ts);
+    return {
+      data: d.toLocaleDateString('it-IT'),
+      ora:  d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+    };
   }
 
   // --- Gestione stazioni ---

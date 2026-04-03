@@ -60,17 +60,39 @@ export class ApiConfig extends Construct {
     stazioneId.addMethod('DELETE', new apigateway.LambdaIntegration(handler), cognitoOpts); // Elimina stazione (manager)
   }
 
-  // Aggiunge le rotte /biometric protette per la registrazione WebAuthn
+  // Aggiunge le rotte /biometric — registrazione (Cognito) + autenticazione (pubblica)
   public addBiometricRoutes(handler: lambda.IFunction) {
-    const opts = {
-      authorizer: this.authorizer,
+    const cognitoOpts = {
+      authorizer:        this.authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     };
+    const noAuth = { authorizationType: apigateway.AuthorizationType.NONE };
 
     const biometric    = this.api.root.addResource('biometric');
     const registration = biometric.addResource('registration');
-    registration.addResource('start').addMethod('POST',    new apigateway.LambdaIntegration(handler), opts); // Genera challenge
-    registration.addResource('complete').addMethod('POST', new apigateway.LambdaIntegration(handler), opts); // Verifica e salva
+    registration.addResource('start').addMethod('POST',    new apigateway.LambdaIntegration(handler), cognitoOpts); // Genera challenge registrazione
+    registration.addResource('complete').addMethod('POST', new apigateway.LambdaIntegration(handler), cognitoOpts); // Verifica e salva credenziale
+
+    // Autenticazione biometrica — pubblica (la biometria è la prova d'identità)
+    const authentication = biometric.addResource('authentication');
+    authentication.addResource('start').addMethod('POST',    new apigateway.LambdaIntegration(handler), noAuth); // Genera challenge autenticazione
+    authentication.addResource('complete').addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth); // Verifica assertion (per test)
+  }
+
+  // Aggiunge le rotte /timbrature
+  public addTimbratureRoutes(handler: lambda.IFunction) {
+    const cognitoOpts = {
+      authorizer:        this.authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    };
+    const noAuth = { authorizationType: apigateway.AuthorizationType.NONE };
+
+    const timbrature = this.api.root.addResource('timbrature');
+    timbrature.addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth);       // Registra timbratura (biometria + QR)
+    timbrature.addMethod('GET',  new apigateway.LambdaIntegration(handler), cognitoOpts);  // Lista timbrature (manager, per data)
+
+    timbrature.addResource('me')
+      .addMethod('GET', new apigateway.LambdaIntegration(handler), cognitoOpts);           // Timbrature del dipendente loggato
   }
 
   // Aggiunge tutte le rotte /users protette, collegate alla stessa lambda

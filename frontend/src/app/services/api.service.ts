@@ -23,6 +23,17 @@ export class ApiService {
   startBiometricRegistration(): Observable<any>                    { return this.http.post(`${this.apiUrl}/biometric/registration/start`, {}); }
   completeBiometricRegistration(credential: any): Observable<any>  { return this.http.post(`${this.apiUrl}/biometric/registration/complete`, credential); }
 
+  // --- Biometric Authentication (timbratura) ---
+  startBiometricAuthentication(): Observable<any>                  { return this.http.post(`${this.apiUrl}/biometric/authentication/start`, {}); }
+
+  // --- Timbrature ---
+  registraTimbratura(data: any): Observable<any>              { return this.http.post(`${this.apiUrl}/timbrature`, data); }
+  getMieTimbrature(mese?: string): Observable<any>            { return this.http.get(`${this.apiUrl}/timbrature/me${mese ? '?mese=' + mese : ''}`); }
+  getTimbratureUtente(userId: string, mese?: string): Observable<any> {
+    const params = `?userId=${userId}${mese ? '&mese=' + mese : ''}`;
+    return this.http.get(`${this.apiUrl}/timbrature${params}`);
+  }
+
   // --- Stazioni (JWT custom iniettato dall'interceptor per le rotte /stazioni/me/*) ---
   getStazioneQr(): Observable<{ qrUrl: string; expiresAt: number }> { return this.http.get<any>(`${this.apiUrl}/stazioni/me/qr`); }
   updateStazionePosition(lat: number, lng: number): Observable<any> { return this.http.post(`${this.apiUrl}/stazioni/me/position`, { lat, lng }); }
