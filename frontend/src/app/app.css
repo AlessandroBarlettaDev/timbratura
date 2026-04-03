@@ -63,6 +63,11 @@ input:focus { border-color: #000; }
 .detail-grid { display: grid; grid-template-columns: 180px 1fr; gap: 16px 12px; margin-top: 8px; }
 .detail-label { font-size: 13px; font-weight: 600; color: #aaa; align-self: center; }
 
+/* ── Dettaglio utente — layout verticale (label sopra, valore sotto) ── */
+.detail-list { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
+.detail-item { display: flex; flex-direction: column; gap: 4px; }
+.detail-item .detail-label { align-self: unset; }
+
 /* ── Dettaglio azioni ── */
 .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
 .detail-header .panel-title { margin-bottom: 0; }
@@ -117,6 +122,9 @@ input:focus { border-color: #000; }
 
 /* ── Modal ── */
 .modal-error { color: #e53935; font-size: 13px; margin-bottom: 12px; text-align: center; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.modal-card { background: #fff; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); padding: 36px; width: 100%; max-width: 420px; }
-.modal-card h2 { margin-bottom: 24px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+.modal-card { background: #fff; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); padding: 28px 32px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
+.modal-card h2 { margin-bottom: 20px; }
+.form-group-inline { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.form-group-inline label { width: 130px; flex-shrink: 0; font-size: 12px; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group-inline input, .form-group-inline .switch-container { flex: 1; margin-bottom: 0; }

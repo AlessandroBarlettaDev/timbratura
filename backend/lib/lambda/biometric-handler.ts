@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { DynamoDBClient, PutItemCommand, QueryCommand, GetItemCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, PutItemCommand, QueryCommand, GetItemCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import {
   generateRegistrationOptions,
@@ -105,6 +105,15 @@ async function completeRegistration(userId: string, event: APIGatewayProxyEvent)
 
     const { credential } = registrationInfo;
 
+    // Elimina le credenziali precedenti dello stesso utente prima di salvare la nuova
+    const existing = await getCredentialsByUser(userId);
+    await Promise.all(existing.map(c =>
+      dynamo.send(new DeleteItemCommand({
+        TableName: TABLE_NAME,
+        Key: marshall({ credentialId: c.credentialId }),
+      }))
+    ));
+    // Salva la nuova credenziale
     await dynamo.send(new PutItemCommand({
       TableName: TABLE_NAME,
       Item: marshall({

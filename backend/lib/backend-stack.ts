@@ -13,16 +13,15 @@ export class BackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // Cognito
-    const cognito = new CognitoConfig(this, 'CognitoConfig');
+    // Hosting S3 + CloudFront — creato prima di Cognito per passare l'appUrl al template email
+    const hosting = new HostingConfig(this, 'Hosting');
+    const appUrl  = hosting.appUrl;
+
+    // Cognito — riceve appUrl per costruire il link nel template email di benvenuto
+    const cognito = new CognitoConfig(this, 'CognitoConfig', appUrl);
 
     // DynamoDB
     const dynamo = new DynamoDbConfig(this, 'DynamoDbConfig');
-
-    // Hosting S3 + CloudFront — deve essere creato prima dei Lambda
-    // perché l'URL CloudFront viene passato come variabile d'ambiente
-    const hosting = new HostingConfig(this, 'Hosting');
-    const appUrl  = hosting.appUrl;
     // RP_ID è solo il dominio senza schema (es. "abc.cloudfront.net")
     const rpId    = cdk.Fn.select(2, cdk.Fn.split('/', appUrl));
 
@@ -34,8 +33,6 @@ export class BackendStack extends cdk.Stack {
       environment: {
         USER_POOL_ID:        cognito.userPool.userPoolId,
         WEBAUTHN_TABLE_NAME: dynamo.webAuthnTable.tableName,
-        RESEND_API_KEY:      process.env.RESEND_API_KEY ?? '',
-        APP_URL:             appUrl,
       },
     });
 

@@ -21,26 +21,41 @@
         <div style="background: #fff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 36px;">
           <h2 class="panel-title">{{ profile.given_name }} {{ profile.family_name }}</h2>
 
-          <div class="detail-grid">
-            <span class="detail-label">Email</span>              <span>{{ profile.email }}</span>
-            <span class="detail-label">Data di nascita</span>    <span>{{ profile.birthdate || '—' }}</span>
-            <span class="detail-label">Codice fiscale</span>     <span>{{ profile.codice_fiscale || '—' }}</span>
-            <span class="detail-label">Data assunzione</span>    <span>{{ profile.data_assunzione || '—' }}</span>
-            <span class="detail-label">Fine contratto</span>     <span>{{ profile.termine_contratto || '—' }}</span>
-            <span class="detail-label">Password cambiata</span>
-            <span>
+          <div class="detail-list">
+            <div class="detail-item">
+              <span class="detail-label">Email</span>
+              <span>{{ profile.email }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Data di nascita</span>
+              <span>{{ profile.birthdate || '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Codice fiscale</span>
+              <span>{{ profile.codice_fiscale || '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Data assunzione</span>
+              <span>{{ profile.data_assunzione || '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Fine contratto</span>
+              <span>{{ profile.termine_contratto || '—' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Password cambiata</span>
               <span class="badge" [class.badge-active]="profile.password_changed === 'true'" [class.badge-inactive]="profile.password_changed !== 'true'">
                 {{ profile.password_changed === 'true' ? 'Sì' : 'No' }}
               </span>
-            </span>
-            <span class="detail-label">Biometria registrata</span>
-            <span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Biometria registrata</span>
               <span class="badge" [class.badge-active]="profile.biometrics_reg === 'true'" [class.badge-inactive]="profile.biometrics_reg !== 'true'">
                 {{ profile.biometrics_reg === 'true' ? 'Sì' : 'No' }}
               </span>
-            </span>
-            <span class="detail-label">Presente ora</span>
-            <span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Presente ora</span>
               @if (presenteOra === true) {
                 <span class="badge badge-active">Sì</span>
               } @else if (presenteOra === false) {
@@ -48,7 +63,7 @@
               } @else {
                 <span class="badge badge-inactive">—</span>
               }
-            </span>
+            </div>
           </div>
         </div>
 

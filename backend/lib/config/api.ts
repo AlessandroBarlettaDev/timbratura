@@ -91,6 +91,9 @@ export class ApiConfig extends Construct {
     timbrature.addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth);       // Registra timbratura (biometria + QR)
     timbrature.addMethod('GET',  new apigateway.LambdaIntegration(handler), cognitoOpts);  // Timbrature di un dipendente (manager)
 
+    timbrature.addResource('anteprima').addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth);  // Verifica QR+biometria, calcola tipo
+    timbrature.addResource('conferma').addMethod('POST',  new apigateway.LambdaIntegration(handler), noAuth);  // Conferma e salva definitivamente
+
     timbrature.addResource('me')
       .addMethod('GET', new apigateway.LambdaIntegration(handler), cognitoOpts);           // Timbrature del dipendente loggato
 

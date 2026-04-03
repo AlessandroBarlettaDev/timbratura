@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { DynamoDBClient, PutItemCommand, QueryCommand, ScanCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, PutItemCommand, QueryCommand, ScanCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { CognitoIdentityProviderClient, AdminGetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
 import * as crypto from 'crypto';
@@ -16,6 +16,12 @@ const JWT_SECRET       = process.env.JWT_SECRET!;
 // Punto di ingresso
 export const handler = async (event: APIGatewayProxyEvent) => {
   const { httpMethod, resource } = event;
+
+  // POST /timbrature/anteprima — verifica QR + biometria, calcola tipo, non salva
+  if (httpMethod === 'POST' && resource === '/timbrature/anteprima') return await anteprimaTimbratura(event);
+
+  // POST /timbrature/conferma — salva la timbratura dopo conferma utente
+  if (httpMethod === 'POST' && resource === '/timbrature/conferma') return await confermaTimbratura(event);
 
   // POST /timbrature — pubblica, identità provata da biometria + QR
   if (httpMethod === 'POST' && resource === '/timbrature') return await registraTimbratura(event);
@@ -48,6 +54,100 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 
   return json(404, 'Rotta non trovata');
 };
+
+// --- POST /timbrature/anteprima ---
+// Verifica QR + biometria, calcola tipo, salva pending-entry (TTL 5 min). Non salva ancora.
+async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
+  if (!event.body) return json(400, 'Body mancante');
+
+  const { stationId, qrToken, expiresAt, assertion, sessionId } = JSON.parse(event.body);
+  if (!stationId || !qrToken || !expiresAt || !assertion || !sessionId)
+    return json(400, 'Parametri mancanti');
+
+  if (Math.floor(Date.now() / 1000) > parseInt(expiresAt))
+    return json(410, 'QR scaduto — chiedi alla stazione di aggiornarlo');
+
+  const expectedToken = crypto.createHmac('sha256', JWT_SECRET).update(`${stationId}:${expiresAt}`).digest('hex');
+  if (qrToken !== expectedToken) return json(401, 'QR non valido');
+
+  let userId: string;
+  try { userId = await verifyAssertion(assertion, sessionId); }
+  catch (err: any) { return json(401, err.message); }
+
+  let nome = '', cognome = '';
+  try {
+    const user = await cognito.send(new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: userId }));
+    const attrs = Object.fromEntries((user.UserAttributes ?? []).map(a => [a.Name, a.Value]));
+    nome    = attrs['given_name']  ?? '';
+    cognome = attrs['family_name'] ?? '';
+  } catch {}
+
+  const oggi        = new Date().toISOString().slice(0, 10);
+  const ultima      = await getUltimaTimbratura(userId, oggi);
+  const tipo        = (!ultima || ultima.tipo === 'uscita') ? 'entrata' : 'uscita';
+  const confirmToken   = crypto.randomBytes(16).toString('hex');
+  const pendingTimestamp = new Date().toISOString();
+
+  // Salva pending-entry: PK = pending#<token>, SK = timestamp
+  await dynamo.send(new PutItemCommand({
+    TableName: TIMBRATURE_TABLE,
+    Item: marshall({
+      userId:    `pending#${confirmToken}`,
+      timestamp: pendingTimestamp,
+      realUserId: userId,
+      nome, cognome, stationId, tipo,
+      data:      oggi,
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+    }),
+  }));
+
+  return json(200, { tipo, confirmToken, nome, cognome });
+}
+
+// --- POST /timbrature/conferma ---
+// Legge la pending-entry, salva la timbratura definitiva con il realUserId, elimina la pending.
+async function confermaTimbratura(event: APIGatewayProxyEvent) {
+  if (!event.body) return json(400, 'Body mancante');
+
+  const { confirmToken } = JSON.parse(event.body);
+  if (!confirmToken) return json(400, 'confirmToken mancante');
+
+  const queryResult = await dynamo.send(new QueryCommand({
+    TableName:                 TIMBRATURE_TABLE,
+    KeyConditionExpression:    'userId = :pk',
+    ExpressionAttributeValues: marshall({ ':pk': `pending#${confirmToken}` }),
+    Limit: 1,
+  }));
+
+  if (!queryResult.Items?.length) return json(404, 'Sessione scaduta o non trovata');
+  const pending = unmarshall(queryResult.Items[0]);
+
+  if (Math.floor(Date.now() / 1000) > (pending.expiresAt ?? 0))
+    return json(410, 'Sessione scaduta — ricomincia dal QR');
+
+  const timestamp = new Date().toISOString();
+
+  await dynamo.send(new PutItemCommand({
+    TableName: TIMBRATURE_TABLE,
+    Item: marshall({
+      userId:    pending.realUserId,
+      nome:      pending.nome,
+      cognome:   pending.cognome,
+      timestamp,
+      data:      pending.data,
+      stationId: pending.stationId,
+      tipo:      pending.tipo,
+    }),
+  }));
+
+  // Elimina la pending-entry
+  await dynamo.send(new DeleteItemCommand({
+    TableName: TIMBRATURE_TABLE,
+    Key: marshall({ userId: `pending#${confirmToken}`, timestamp: pending.timestamp }),
+  }));
+
+  return json(200, { tipo: pending.tipo, timestamp, nome: pending.nome, cognome: pending.cognome });
+}
 
 // --- POST /timbrature ---
 // Verifica QR → verifica biometrica → recupera nome dipendente → determina tipo → salva

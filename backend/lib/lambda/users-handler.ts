@@ -7,9 +7,7 @@ import {
   AdminUpdateUserAttributesCommand,
   AdminDeleteUserCommand,
   ListUsersCommand,
-  MessageActionType,
 } from '@aws-sdk/client-cognito-identity-provider';
-import { sendWelcomeEmail } from './custom-message';
 import { DynamoDBClient, QueryCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { getJwtClaims, isManagerClaims } from './auth';
@@ -19,7 +17,6 @@ const cognitoClient = new CognitoIdentityProviderClient({});
 const dynamoClient  = new DynamoDBClient({});
 const USER_POOL_ID    = process.env.USER_POOL_ID!;
 const WEBAUTHN_TABLE  = process.env.WEBAUTHN_TABLE_NAME!;
-const APP_URL         = process.env.APP_URL ?? 'http://localhost:4200';
 
 // Punto di ingresso — API Gateway chiama questa funzione per ogni richiesta su /users
 export const handler = async (event: APIGatewayProxyEvent) => {
@@ -66,19 +63,12 @@ async function createEmployee(event: APIGatewayProxyEvent) {
 
   const tempPassword = `Tmp_${Math.random().toString(36).slice(2, 10)}!A1`;
 
-  // Invia email di benvenuto tramite Resend
-  const emailError = await sendWelcomeEmail(email, nome, cognome, tempPassword, APP_URL);
-  if (emailError) {
-    console.error('[RESEND] Errore invio email:', emailError);
-    return json(500, 'Errore durante l\'invio dell\'email di benvenuto');
-  }
-
   try {
     await cognitoClient.send(new AdminCreateUserCommand({
-      UserPoolId:    USER_POOL_ID,
-      Username:      email,
+      UserPoolId:        USER_POOL_ID,
+      Username:          email,
       TemporaryPassword: tempPassword,
-      MessageAction: MessageActionType.SUPPRESS,  // email gestita da Resend
+      // Cognito invia l'email con il template userInvitation definito in cognito.ts
       UserAttributes: [
         { Name: 'email',                    Value: email },
         { Name: 'given_name',               Value: nome },

@@ -275,12 +275,12 @@
   <div class="modal-overlay" (click)="showEditModal = false">
     <div class="modal-card" (click)="$event.stopPropagation()">
       <h2>Modifica dipendente</h2>
-      <div class="form-group"><label>Nome</label>              <input type="text" [(ngModel)]="editUser.nome"              placeholder="Nome"></div>
-      <div class="form-group"><label>Cognome</label>           <input type="text" [(ngModel)]="editUser.cognome"           placeholder="Cognome"></div>
-      <div class="form-group"><label>Data di nascita</label>   <input type="date" [(ngModel)]="editUser.birthdate"></div>
-      <div class="form-group"><label>Codice fiscale</label>    <input type="text" [(ngModel)]="editUser.codice_fiscale"    placeholder="Codice fiscale"></div>
-      <div class="form-group"><label>Data assunzione</label>   <input type="date" [(ngModel)]="editUser.data_assunzione"></div>
-      <div class="form-group"><label>Fine contratto</label>    <input type="date" [(ngModel)]="editUser.termine_contratto"></div>
+      <div class="form-group-inline"><label>Nome</label>              <input type="text" [(ngModel)]="editUser.nome"              placeholder="Nome"></div>
+      <div class="form-group-inline"><label>Cognome</label>           <input type="text" [(ngModel)]="editUser.cognome"           placeholder="Cognome"></div>
+      <div class="form-group-inline"><label>Data di nascita</label>   <input type="date" [(ngModel)]="editUser.birthdate"></div>
+      <div class="form-group-inline"><label>Codice fiscale</label>    <input type="text" [(ngModel)]="editUser.codice_fiscale"    placeholder="Codice fiscale"></div>
+      <div class="form-group-inline"><label>Data assunzione</label>   <input type="date" [(ngModel)]="editUser.data_assunzione"></div>
+      <div class="form-group-inline"><label>Fine contratto</label>    <input type="date" [(ngModel)]="editUser.termine_contratto"></div>
       <button class="btn-login" (click)="saveEdit()">Salva modifiche</button>
       <button class="btn-forgot" (click)="showEditModal = false">Annulla</button>
     </div>
@@ -330,19 +330,19 @@
   <div class="modal-overlay" (click)="closeModal()">
     <div class="modal-card" (click)="$event.stopPropagation()">
       <h2>Nuovo utente</h2>
-      <div class="form-group"><label>Ruolo</label>
+      <div class="form-group-inline"><label>Ruolo</label>
         <div class="switch-container">
           <button class="switch-btn" [class.active]="newUser.ruolo === 'employee'" (click)="newUser.ruolo = 'employee'">Dipendente</button>
           <button class="switch-btn" [class.active]="newUser.ruolo === 'manager'"  (click)="newUser.ruolo = 'manager'">Manager</button>
         </div>
       </div>
-      <div class="form-group"><label>Email *</label>          <input type="email" [(ngModel)]="newUser.email"             placeholder="email@esempio.it"></div>
-      <div class="form-group"><label>Nome *</label>           <input type="text"  [(ngModel)]="newUser.nome"              placeholder="Nome"></div>
-      <div class="form-group"><label>Cognome *</label>        <input type="text"  [(ngModel)]="newUser.cognome"           placeholder="Cognome"></div>
-      <div class="form-group"><label>Data di nascita</label>  <input type="date"  [(ngModel)]="newUser.birthdate"></div>
-      <div class="form-group"><label>Codice fiscale</label>   <input type="text"  [(ngModel)]="newUser.codice_fiscale"    placeholder="RSSMRA90A01H501U"></div>
-      <div class="form-group"><label>Data assunzione</label>  <input type="date"  [(ngModel)]="newUser.data_assunzione"></div>
-      <div class="form-group"><label>Fine contratto</label>   <input type="date"  [(ngModel)]="newUser.termine_contratto"></div>
+      <div class="form-group-inline"><label>Email *</label>          <input type="email" [(ngModel)]="newUser.email"             placeholder="email@esempio.it"></div>
+      <div class="form-group-inline"><label>Nome *</label>           <input type="text"  [(ngModel)]="newUser.nome"              placeholder="Nome"></div>
+      <div class="form-group-inline"><label>Cognome *</label>        <input type="text"  [(ngModel)]="newUser.cognome"           placeholder="Cognome"></div>
+      <div class="form-group-inline"><label>Data di nascita</label>  <input type="date"  [(ngModel)]="newUser.birthdate"></div>
+      <div class="form-group-inline"><label>Codice fiscale</label>   <input type="text"  [(ngModel)]="newUser.codice_fiscale"    placeholder="RSSMRA90A01H501U"></div>
+      <div class="form-group-inline"><label>Data assunzione</label>  <input type="date"  [(ngModel)]="newUser.data_assunzione"></div>
+      <div class="form-group-inline"><label>Fine contratto</label>   <input type="date"  [(ngModel)]="newUser.termine_contratto"></div>
       @if (modalError) { <p class="modal-error">{{ modalError }}</p> }
       <button class="btn-login" (click)="addUser()">Crea dipendente</button>
       <button class="btn-forgot" (click)="closeModal()">Annulla</button>

@@ -9,8 +9,10 @@ export class CognitoConfig extends Construct {
     public readonly managerGroup: cognito.CfnUserPoolGroup;
     public readonly employeeGroup: cognito.CfnUserPoolGroup;
 
-    constructor(scope: Construct, id: string) {
+    constructor(scope: Construct, id: string, appUrl?: string) {
         super(scope, id);
+
+        const loginUrl = appUrl ? `${appUrl}/login` : '/login';
 
         // Crea User Pool con attributi personalizzati
         this.userPool = new cognito.UserPool(this, 'UserPool', {
@@ -19,6 +21,24 @@ export class CognitoConfig extends Construct {
             signInAliases: { email: true },
             autoVerify: { email: true },
             email: cognito.UserPoolEmail.withCognito(),
+            userInvitation: {
+                emailSubject: 'Benvenuto! Completa la registrazione al portale Timbratura',
+                emailBody: `
+                    <p>Ciao,</p>
+                    <p>il tuo account sul portale <strong>Timbratura</strong> è stato creato.</p>
+                    <p>Accedi con le seguenti credenziali:</p>
+                    <p>
+                        <strong>Email:</strong> {username}<br>
+                        <strong>Password temporanea:</strong> {####}
+                    </p>
+                    <p>Clicca sul seguente link per accedere:<br>
+                    <a href="${loginUrl}">${loginUrl}</a></p>
+                    <p>Al primo accesso ti verrà chiesto di impostare una nuova password
+                    e registrare il tuo dispositivo biometrico.</p>
+                    <p>Se non hai richiesto la registrazione, ignora questa email.</p>
+                    <p>Grazie,<br>Il team di Timbratura</p>
+                `,
+            },
             standardAttributes: {
                 email: { required: true, mutable: false },
                 givenName: { required: true, mutable: true },
@@ -46,14 +66,12 @@ export class CognitoConfig extends Construct {
             }
         });
 
-        // Crea gruppi per manager e dipendenti
+        // Crea gruppi
         this.managerGroup = new cognito.CfnUserPoolGroup(this, 'ManagerGroup', {
             groupName: 'manager',
             userPoolId: this.userPool.userPoolId,
             description: 'Manager users'
         });
-        // Il gruppo "employee" è stato creato per i dipendenti, ma al momento non viene utilizzato direttamente nel codice. 
-        // Le verifiche dei ruoli e dei permessi vengono gestite principalmente tramite l'attributo personalizzato "role" degli utenti. 
         this.employeeGroup = new cognito.CfnUserPoolGroup(this, 'EmployeeGroup', {
             groupName: 'employee',
             userPoolId: this.userPool.userPoolId,
