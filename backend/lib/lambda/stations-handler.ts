@@ -7,9 +7,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { getJwtClaims, isManagerClaims } from './auth';
 
 const dynamo        = new DynamoDBClient({});
-const TABLE_NAME    = process.env.STAZIONI_TABLE_NAME!;
-const JWT_SECRET    = process.env.JWT_SECRET!;
-const APP_URL       = process.env.APP_URL ?? 'http://localhost:4200';
+const TABLE_NAME       = process.env.STAZIONI_TABLE_NAME!;
+const TIMBRATURE_TABLE = process.env.TIMBRATURE_TABLE_NAME!;
+const JWT_SECRET       = process.env.JWT_SECRET!;
+const APP_URL          = process.env.APP_URL ?? 'http://localhost:4200';
 const QR_TTL_SECS   = 3 * 60;  // il QR scade dopo 3 minuti
 
 // Punto di ingresso — routing interno per le rotte /stazioni/*
@@ -168,8 +169,31 @@ async function getQr(stationId: string) {
     }));
   }
 
+  // Calcola presenti: ultima timbratura di oggi per ogni utente in questa stazione
+  const oggi = new Date().toISOString().slice(0, 10);
+  const timRes = await dynamo.send(new QueryCommand({
+    TableName:                 TIMBRATURE_TABLE,
+    IndexName:                 'data-index',
+    KeyConditionExpression:    '#d = :data',
+    FilterExpression:          'stationId = :sid',
+    ExpressionAttributeNames:  { '#d': 'data' },
+    ExpressionAttributeValues: marshall({ ':data': oggi, ':sid': stationId }),
+    ScanIndexForward:          true,
+  }));
+  const timbratureOggi = (timRes.Items ?? []).map(i => unmarshall(i));
+
+  const ultimaPerUtente = new Map<string, any>();
+  for (const t of timbratureOggi) {
+    const attuale = ultimaPerUtente.get(t.userId);
+    if (!attuale || t.timestamp > attuale.timestamp) ultimaPerUtente.set(t.userId, t);
+  }
+  let presenti = 0;
+  for (const t of ultimaPerUtente.values()) {
+    if (t.tipo === 'entrata') presenti++;
+  }
+
   const qrUrl = `${APP_URL}/timbratura?s=${stationId}&t=${qrToken}&exp=${expiresAt}`;
-  return json(200, { qrUrl, expiresAt });
+  return json(200, { qrUrl, expiresAt, presenti });
 }
 
 // --- POST /stazioni/me/position — aggiorna la posizione GPS della stazione ---

@@ -76,14 +76,14 @@ export class BackendStack extends cdk.Stack {
       handler: 'handler',
       timeout: cdk.Duration.seconds(10),
       environment: {
-        STAZIONI_TABLE_NAME: dynamo.stazioniTable.tableName,
-        // Chiave segreta per firmare i JWT delle stazioni e i token QR
-        // In produzione usare AWS Secrets Manager
+        STAZIONI_TABLE_NAME:   dynamo.stazioniTable.tableName,
+        TIMBRATURE_TABLE_NAME: dynamo.timbratureTable.tableName,
         JWT_SECRET: 'timbratura-stazioni-secret-changeme',
         APP_URL:    appUrl,
       },
     });
     dynamo.stazioniTable.grantReadWriteData(stazioniHandler);
+    dynamo.timbratureTable.grantReadData(stazioniHandler);
 
     // Lambda per la registrazione delle timbrature (entrate/uscite)
     const timbratureHandler = new NodejsFunction(this, 'TimbratureHandler', {

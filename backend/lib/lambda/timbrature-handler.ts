@@ -60,7 +60,7 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { stationId, qrToken, expiresAt, assertion, sessionId } = JSON.parse(event.body);
+  const { stationId, qrToken, expiresAt, assertion, sessionId, lat, lng } = JSON.parse(event.body);
   if (!stationId || !qrToken || !expiresAt || !assertion || !sessionId)
     return json(400, 'Parametri mancanti');
 
@@ -69,6 +69,18 @@ async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
 
   const expectedToken = crypto.createHmac('sha256', JWT_SECRET).update(`${stationId}:${expiresAt}`).digest('hex');
   if (qrToken !== expectedToken) return json(401, 'QR non valido');
+
+  // Verifica posizione: se la stazione ha GPS, controlla che il dispositivo sia nelle vicinanze
+  const stazione = await getStazioneById(stationId);
+  if (stazione?.lat != null && stazione?.lng != null) {
+    if (lat == null || lng == null) {
+      return json(403, 'Posizione GPS non disponibile — assicurati di aver concesso i permessi di localizzazione');
+    }
+    const distanza = calcolaDistanzaMetri(lat, lng, stazione.lat, stazione.lng);
+    if (distanza > 200) {
+      return json(403, `Sei troppo lontano dalla stazione (${Math.round(distanza)}m). Avvicinati e riprova.`);
+    }
+  }
 
   let userId: string;
   try { userId = await verifyAssertion(assertion, sessionId); }
@@ -127,6 +139,15 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
 
   const timestamp = new Date().toISOString();
 
+  // Se è un'uscita, calcola la durata dall'ultima entrata di oggi
+  let durataMinuti: number | undefined;
+  if (pending.tipo === 'uscita') {
+    const ultimaEntrata = await getUltimaTimbraturaTipo(pending.realUserId, pending.data, 'entrata');
+    if (ultimaEntrata) {
+      durataMinuti = Math.round((new Date(timestamp).getTime() - new Date(ultimaEntrata.timestamp).getTime()) / 60000);
+    }
+  }
+
   await dynamo.send(new PutItemCommand({
     TableName: TIMBRATURE_TABLE,
     Item: marshall({
@@ -137,6 +158,7 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
       data:      pending.data,
       stationId: pending.stationId,
       tipo:      pending.tipo,
+      ...(durataMinuti !== undefined && { durataMinuti }),
     }),
   }));
 
@@ -146,7 +168,7 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
     Key: marshall({ userId: `pending#${confirmToken}`, timestamp: pending.timestamp }),
   }));
 
-  return json(200, { tipo: pending.tipo, timestamp, nome: pending.nome, cognome: pending.cognome });
+  return json(200, { tipo: pending.tipo, timestamp, nome: pending.nome, cognome: pending.cognome, durataMinuti });
 }
 
 // --- POST /timbrature ---
@@ -280,6 +302,20 @@ async function getTimbratureUtente(userId: string, mese?: string) {
   return json(200, (result.Items ?? []).map(i => unmarshall(i)));
 }
 
+// Recupera l'ultima timbratura di un tipo specifico (entrata/uscita) per un utente in una data
+async function getUltimaTimbraturaTipo(userId: string, data: string, tipo: string) {
+  const result = await dynamo.send(new QueryCommand({
+    TableName:                 TIMBRATURE_TABLE,
+    KeyConditionExpression:    'userId = :uid AND begins_with(#ts, :data)',
+    FilterExpression:          'tipo = :tipo',
+    ExpressionAttributeNames:  { '#ts': 'timestamp' },
+    ExpressionAttributeValues: marshall({ ':uid': userId, ':data': data, ':tipo': tipo }),
+    ScanIndexForward:          false,
+    Limit:                     10,
+  }));
+  return result.Items?.[0] ? unmarshall(result.Items[0]) : null;
+}
+
 // Recupera l'ultima timbratura di un utente per una data specifica
 async function getUltimaTimbratura(userId: string, data: string) {
   const result = await dynamo.send(new QueryCommand({
@@ -292,6 +328,29 @@ async function getUltimaTimbratura(userId: string, data: string) {
   }));
   return result.Items?.[0] ? unmarshall(result.Items[0]) : null;
 }
+
+// Calcola la distanza in metri tra due coordinate GPS (formula di Haversine)
+function calcolaDistanzaMetri(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R    = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a    = Math.sin(dLat / 2) ** 2 +
+               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Legge una stazione dalla tabella Stazioni tramite stationId
+async function getStazioneById(stationId: string) {
+  const result = await dynamo.send(new QueryCommand({
+    TableName:                 STAZIONI_TABLE,
+    KeyConditionExpression:    'stationId = :id',
+    ExpressionAttributeValues: marshall({ ':id': stationId }),
+    Limit: 1,
+  }));
+  return result.Items?.[0] ? unmarshall(result.Items[0]) : null;
+}
+
+
 
 function json(status: number, body: any) {
   return {

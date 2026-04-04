@@ -23,20 +23,29 @@ export class DashboardEmployee implements OnInit {
 
   constructor(private apiService: ApiService, public authService: AuthService, private cdr: ChangeDetectorRef) {}
 
-  ngOnInit() { this.loadProfile(); }
+  ngOnInit() {
+    // Aspetta che la sessione Cognito sia caricata prima di caricare il profilo
+    // (necessario quando si arriva da pagine pubbliche come /timbratura)
+    this.authService.checkCurrentSession().then(() => {
+      console.log('[employee] sessione caricata, utente:', this.authService.utente());
+      this.loadProfile();
+    });
+  }
 
   private loadProfile() {
     const me = this.authService.utente();
-    if (!me) return;
+    console.log('[employee] loadProfile, utente:', me);
+    if (!me) { console.warn('[employee] utente null — profilo non caricato'); return; }
     this.profileLoading = true;
     this.apiService.getUser(me.userId).subscribe({
       next: (data) => {
+        console.log('[employee] profilo caricato:', data);
         this.profile      = data;
         this.profileLoading = false;
         this.loadTimbrature();
         this.cdr.detectChanges();
       },
-      error: (err) => { console.error('Errore caricamento profilo:', err); this.profileLoading = false; this.cdr.detectChanges(); },
+      error: (err) => { console.error('[employee] errore profilo:', err); this.profileLoading = false; this.cdr.detectChanges(); },
     });
   }
 

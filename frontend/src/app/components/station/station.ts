@@ -18,6 +18,7 @@ export class Station implements OnInit, OnDestroy {
   secondiRimasti = QR_REFRESH_MS / 1000;
   orario         = '';             // ora corrente aggiornata ogni secondo
   scadenzaQrOra  = '';             // orario di scadenza del QR (HH:MM:SS)
+  presenti       = 0;
   errore: string | null = null;
 
   private scadenzaTimestamp = 0;   // timestamp Unix scadenza QR
@@ -56,11 +57,13 @@ export class Station implements OnInit, OnDestroy {
     clearInterval(this.countdownTimer);
   }
 
-  // Richiede il QR al backend e lo converte in immagine
+  // Richiede il QR al backend e lo converte in immagine; aggiorna anche il GPS
   private rinnovaQr() {
+    this.inviaPosizioneGps();
     this.api.getStazioneQr().subscribe({
-      next: async (res: { qrUrl: string; expiresAt: number }) => {
+      next: async (res: { qrUrl: string; expiresAt: number; presenti: number }) => {
         this.scadenzaTimestamp = res.expiresAt;
+        this.presenti          = res.presenti ?? 0;
         this.qrDataUrl = await QRCode.toDataURL(res.qrUrl, { width: 380, margin: 2 });
         this.cdr.detectChanges();
       },

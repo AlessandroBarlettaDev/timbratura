@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { ApiService } from '../../services/api.service';
@@ -13,11 +13,12 @@ type Step = 'verifica' | 'biometrica' | 'conferma' | 'errore';
 })
 export class Timbratura implements OnInit {
   step: Step   = 'verifica';
-  tipo         = '';   // 'entrata' o 'uscita' — determinato dal backend
-  nome         = '';
-  cognome      = '';
-  errore       = '';
-  caricamento  = false;
+  tipo          = '';   // 'entrata' o 'uscita' — determinato dal backend
+  nome          = '';
+  cognome       = '';
+  durataMinuti: number | undefined;
+  errore        = '';
+  caricamento   = false;
 
   private stationId    = '';
   private qrToken      = '';
@@ -28,6 +29,7 @@ export class Timbratura implements OnInit {
     private route:  ActivatedRoute,
     private router: Router,
     private api:    ApiService,
+    private cdr:    ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
@@ -48,16 +50,33 @@ export class Timbratura implements OnInit {
     this.step = 'biometrica';
   }
 
+  // Acquisisce la posizione GPS del dispositivo
+  private getPosizione(): Promise<{ lat: number; lng: number } | null> {
+    return new Promise(resolve => {
+      if (!navigator.geolocation) { resolve(null); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        ()  => resolve(null),
+        { timeout: 8000, maximumAge: 30000 },
+      );
+    });
+  }
+
   // Step 1 — verifica biometrica, ottieni anteprima tipo
   async confermaIdentita() {
     this.caricamento = true;
     this.errore      = '';
 
     try {
-      const { options, sessionId } = await new Promise<any>((resolve, reject) => {
-        this.api.startBiometricAuthentication().subscribe({ next: resolve, error: reject });
-      });
+      // Acquisisce GPS e challenge in parallelo
+      const [posizione, authResult] = await Promise.all([
+        this.getPosizione(),
+        new Promise<any>((resolve, reject) => {
+          this.api.startBiometricAuthentication().subscribe({ next: resolve, error: reject });
+        }),
+      ]);
 
+      const { options, sessionId } = authResult;
       const assertion = await startAuthentication({ optionsJSON: options, useBrowserAutofill: false });
 
       const result = await new Promise<any>((resolve, reject) => {
@@ -67,6 +86,8 @@ export class Timbratura implements OnInit {
           expiresAt: this.expiresAt,
           assertion,
           sessionId,
+          lat: posizione?.lat,
+          lng: posizione?.lng,
         }).subscribe({ next: resolve, error: reject });
       });
 
@@ -75,11 +96,14 @@ export class Timbratura implements OnInit {
       this.cognome      = result.cognome;
       this.confirmToken = result.confirmToken;
       this.step         = 'conferma';
+      this.cdr.detectChanges();
 
     } catch (err: any) {
+      console.error('[timbratura] errore:', err);
       this.mostraErrore(err?.error?.message ?? err?.message ?? 'Errore durante la verifica');
     } finally {
       this.caricamento = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -89,20 +113,33 @@ export class Timbratura implements OnInit {
     this.errore      = '';
 
     try {
-      await new Promise<any>((resolve, reject) => {
+      const result = await new Promise<any>((resolve, reject) => {
         this.api.confermaTimbratura(this.confirmToken).subscribe({ next: resolve, error: reject });
       });
+      this.durataMinuti = result.durataMinuti;
+      this.cdr.detectChanges();
+      // Breve pausa per mostrare la durata prima del redirect
+      await new Promise(r => setTimeout(r, this.tipo === 'uscita' && result.durataMinuti ? 1800 : 0));
       this.router.navigate(['/dashboard-employee']);
 
     } catch (err: any) {
       this.mostraErrore(err?.error?.message ?? err?.message ?? 'Errore durante la timbratura');
     } finally {
       this.caricamento = false;
+      this.cdr.detectChanges();
     }
+  }
+
+  get durataLabel(): string {
+    if (this.durataMinuti == null) return '';
+    const h = Math.floor(this.durataMinuti / 60);
+    const m = this.durataMinuti % 60;
+    return h > 0 ? `${h}h ${m}min` : `${m}min`;
   }
 
   private mostraErrore(msg: string) {
     this.errore = msg;
     this.step   = 'errore';
+    this.cdr.detectChanges();
   }
 }
