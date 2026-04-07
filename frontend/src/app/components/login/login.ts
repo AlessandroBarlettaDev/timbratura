@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/user-auth.service';
 import { ApiService } from '../../services/api.service';
 import { StationAuthService } from '../../services/station-auth.service';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { resetPassword, confirmResetPassword } from 'aws-amplify/auth';
 
 @Component({
@@ -30,6 +30,7 @@ export class Login {
     private apiService: ApiService,
     private stationAuth: StationAuthService,
     private router: Router,
+    private route: ActivatedRoute,
     private cdr: ChangeDetectorRef,         // forza il refresh del template in caso di errori asincroni
   ) {
     this.form = this.fb.group({
@@ -98,12 +99,7 @@ export class Login {
             this.cdr.detectChanges();
             return;
           }
-          // Login riuscito: vai alla dashboard corretta in base al ruolo
-          if (this.authService.isManager) {
-            this.router.navigate(['/dashboard-manager']);
-          } else {
-            this.router.navigate(['/dashboard-employee']);
-          }
+          this.navigateAfterLogin();
         }
       } catch (err: any) {
         this.loginError = err.message;
@@ -123,6 +119,35 @@ export class Login {
       await this.authService.confirmNewPassword(this.changePasswordForm.value.newPassword);
       this.apiService.markPasswordChanged().subscribe();        // Aggiorna il flag su Cognito (non bloccante)
       this.router.navigate(['/first-access']);                  // Vai al first-access per la registrazione biometrica
+    } catch (err: any) {
+      this.loginError = err.message;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private navigateAfterLogin() {
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    if (returnUrl) {
+      this.router.navigateByUrl(decodeURIComponent(returnUrl));
+    } else if (this.authService.isManager) {
+      this.router.navigate(['/dashboard-manager']);
+    } else {
+      this.router.navigate(['/dashboard-employee']);
+    }
+  }
+
+  // Login biometrico — usa l'email dal campo form, poi autentica con passkey Cognito
+  async loginWithBiometrics() {
+    const email = this.form.get('user')?.value?.trim();
+    if (!email) {
+      this.loginError = 'Inserisci la tua email prima di usare il riconoscimento biometrico';
+      this.cdr.detectChanges();
+      return;
+    }
+    this.loginError = null;
+    try {
+      await this.authService.loginWithBiometrics(email);
+      this.navigateAfterLogin();
     } catch (err: any) {
       this.loginError = err.message;
       this.cdr.detectChanges();

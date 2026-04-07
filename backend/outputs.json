@@ -1,0 +1,10 @@
+{
+  "BackendStack": {
+    "CognitoConfigClientIdDFB3EB21": "t611afhrq23s5ttu8j29uqg9l",
+    "ApiTimbraturaApiEndpoint7907C12B": "https://lyd2nnmk7e.execute-api.eu-west-1.amazonaws.com/prod/",
+    "CognitoConfigUserPoolId5FBAA45D": "eu-west-1_sPhrtlr1b",
+    "DynamoDbConfigTimbratureTableNameD79F4372": "Timbrature",
+    "DynamoDbConfigStazioniTableNameF9D75DB3": "Stazioni",
+    "HostingAppUrl0FD4F1DC": "https://d2csjqqicya19l.cloudfront.net"
+  }
+}

@@ -22,7 +22,7 @@
       <div class="info-card">
         <span class="info-label">Scadenza QR</span>
         @if (secondiRimasti > 0) {
-          <span class="info-value-sm"> {{ secondiRimasti || '—' }} s</span>
+          <span class="info-value-sm">{{ secondiRimasti }} s</span>
         }
       </div>
 
@@ -30,6 +30,20 @@
         <span class="info-label">Attualmente presenti</span>
         <span class="info-value">{{ presenti }}</span>
       </div>
+
+      <!-- Mappa GPS stazione -->
+      @if (mapUrl) {
+        <div class="station-map-card">
+          <span class="info-label" style="margin-bottom: 8px; display:block;">Posizione stazione</span>
+          <iframe
+            [src]="mapUrl"
+            class="station-map-iframe"
+            allowfullscreen
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade">
+          </iframe>
+        </div>
+      }
 
     </div>
 
@@ -42,6 +56,17 @@
         <p class="station-hint">Inquadra il codice con il tuo telefono per timbrare</p>
       } @else {
         <div class="spinner-container"><div class="spinner"></div></div>
+      }
+
+      <!-- Notifica ultima timbratura -->
+      @if (ultimaNotifica) {
+        <div class="station-notifica" [class.notifica-entrata]="ultimaNotifica.tipo === 'entrata'" [class.notifica-uscita]="ultimaNotifica.tipo === 'uscita'">
+          <span class="notifica-icon">{{ ultimaNotifica.tipo === 'entrata' ? '🟢' : '🔴' }}</span>
+          <div>
+            <strong>{{ ultimaNotifica.nome }} {{ ultimaNotifica.cognome }}</strong>
+            <span> — {{ ultimaNotifica.tipo }} alle {{ ultimaNotifica.ora }}</span>
+          </div>
+        </div>
       }
     </div>
 

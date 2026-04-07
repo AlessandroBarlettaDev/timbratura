@@ -1,7 +1,12 @@
 <div class="dashboard-container">
 
+  <!-- Overlay mobile per chiudere la sidebar cliccando fuori -->
+  @if (sidebarOpen) {
+    <div class="sidebar-overlay" (click)="sidebarOpen = false"></div>
+  }
+
   <!-- Sidebar sinistra -->
-  <aside class="sidebar">
+  <aside class="sidebar" [class.sidebar-open]="sidebarOpen">
     <span class="brand" style="padding: 0 12px; margin-bottom: 16px; display:block;">TIMBRATURA</span>
     <span class="sidebar-title">Menu</span>
     <button class="nav-item" [class.active]="activeSection === 'dashboard'" (click)="setSection('dashboard')">Dashboard</button>
@@ -18,6 +23,9 @@
 
   <!-- Pannello contenuto -->
   <main class="content-panel">
+
+    <!-- Pulsante menu hamburger — visibile solo su mobile -->
+    <button class="btn-hamburger" (click)="sidebarOpen = !sidebarOpen">☰ Menu</button>
 
     <!-- ── DASHBOARD ── -->
     @if (activeSection === 'dashboard') {
@@ -86,19 +94,29 @@
       @if (!selectedUser) {
         <div class="panel-header">
           <h2 class="panel-title">Utenti</h2>
-          <button class="btn-login" style="width:auto; padding: 10px 20px;" (click)="openModal()">+ Aggiungi utente</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-detail-action" (click)="loadUtenti()">↻ Aggiorna</button>
+            <button class="btn-login" style="width:auto; padding: 10px 20px;" (click)="openModal()">+ Aggiungi utente</button>
+          </div>
         </div>
         @if (isLoading) {
           <div class="spinner-container"><div class="spinner"></div></div>
         } @else if (utenti.length > 0) {
           <table class="data-table">
-            <thead><tr><th>Nome</th><th>Cognome</th><th>Email</th></tr></thead>
+            <thead><tr><th>Nome</th><th>Cognome</th><th>Email</th><th>Presenza</th></tr></thead>
             <tbody>
               @for (u of utenti; track u.sub) {
                 <tr class="clickable-row" (click)="selectUser(u)">
                   <td>{{ u.given_name }}</td>
                   <td>{{ u.family_name }}</td>
                   <td>{{ u.email }}</td>
+                  <td>
+                    @if (presentiOggiSet.has(u.id)) {
+                      <span class="badge badge-active">Presente</span>
+                    } @else {
+                      <span class="badge badge-inactive">Assente</span>
+                    }
+                  </td>
                 </tr>
               }
             </tbody>
@@ -152,7 +170,10 @@
       @if (!selectedStazione) {
         <div class="panel-header">
           <h2 class="panel-title">Stazioni</h2>
-          <button class="btn-login" style="width:auto; padding: 10px 20px;" (click)="openStazioneModal()">+ Aggiungi stazione</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-detail-action" (click)="loadStazioni()">↻ Aggiorna</button>
+            <button class="btn-login" style="width:auto; padding: 10px 20px;" (click)="openStazioneModal()">+ Aggiungi stazione</button>
+          </div>
         </div>
         @if (isLoading) {
           <div class="spinner-container"><div class="spinner"></div></div>
@@ -210,6 +231,22 @@
 <!-- ── TEMPLATE CONDIVISO: TABELLA TIMBRATURE ── -->
 <ng-template #tabellaTimbrature>
   <div style="margin-top: 36px;">
+  @if (timbrature.length > 0) {
+    <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+      <div class="info-stat-card">
+        <span class="info-stat-label">Ore lavorate</span>
+        <span class="info-stat-value">{{ oreLavorate }}</span>
+      </div>
+      <div class="info-stat-card">
+        <span class="info-stat-label">Giorni lavorati</span>
+        <span class="info-stat-value">{{ giorniLavorati }}</span>
+      </div>
+      <div class="info-stat-card">
+        <span class="info-stat-label">Media giornaliera</span>
+        <span class="info-stat-value">{{ mediaGiornaliera }}</span>
+      </div>
+    </div>
+  }
     <div class="panel-header" style="margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
       <h3 class="panel-title" style="font-size: 16px;">Timbrature</h3>
       <div class="timbrature-toolbar">
@@ -278,7 +315,7 @@
       <div class="form-group-inline"><label>Nome</label>              <input type="text" [(ngModel)]="editUser.nome"              placeholder="Nome"></div>
       <div class="form-group-inline"><label>Cognome</label>           <input type="text" [(ngModel)]="editUser.cognome"           placeholder="Cognome"></div>
       <div class="form-group-inline"><label>Data di nascita</label>   <input type="date" [(ngModel)]="editUser.birthdate"></div>
-      <div class="form-group-inline"><label>Codice fiscale</label>    <input type="text" [(ngModel)]="editUser.codice_fiscale"    placeholder="Codice fiscale"></div>
+      <div class="form-group-inline"><label>Codice fiscale</label>    <input type="text" [(ngModel)]="editUser.codice_fiscale" (input)="editUser.codice_fiscale = editUser.codice_fiscale.toUpperCase()" placeholder="Codice fiscale"></div>
       <div class="form-group-inline"><label>Data assunzione</label>   <input type="date" [(ngModel)]="editUser.data_assunzione"></div>
       <div class="form-group-inline"><label>Fine contratto</label>    <input type="date" [(ngModel)]="editUser.termine_contratto"></div>
       <button class="btn-login" (click)="saveEdit()">Salva modifiche</button>
@@ -336,11 +373,11 @@
           <button class="switch-btn" [class.active]="newUser.ruolo === 'manager'"  (click)="newUser.ruolo = 'manager'">Manager</button>
         </div>
       </div>
-      <div class="form-group-inline"><label>Email *</label>          <input type="email" [(ngModel)]="newUser.email"             placeholder="email@esempio.it"></div>
+      <div class="form-group-inline"><label>Email *</label>          <input type="email" [(ngModel)]="newUser.email" (input)="newUser.email = newUser.email.toLowerCase()" placeholder="email@esempio.it"></div>
       <div class="form-group-inline"><label>Nome *</label>           <input type="text"  [(ngModel)]="newUser.nome"              placeholder="Nome"></div>
       <div class="form-group-inline"><label>Cognome *</label>        <input type="text"  [(ngModel)]="newUser.cognome"           placeholder="Cognome"></div>
       <div class="form-group-inline"><label>Data di nascita</label>  <input type="date"  [(ngModel)]="newUser.birthdate"></div>
-      <div class="form-group-inline"><label>Codice fiscale</label>   <input type="text"  [(ngModel)]="newUser.codice_fiscale"    placeholder="RSSMRA90A01H501U"></div>
+      <div class="form-group-inline"><label>Codice fiscale</label>   <input type="text"  [(ngModel)]="newUser.codice_fiscale" (input)="newUser.codice_fiscale = newUser.codice_fiscale.toUpperCase()" placeholder="RSSMRA90A01H501U"></div>
       <div class="form-group-inline"><label>Data assunzione</label>  <input type="date"  [(ngModel)]="newUser.data_assunzione"></div>
       <div class="form-group-inline"><label>Fine contratto</label>   <input type="date"  [(ngModel)]="newUser.termine_contratto"></div>
       @if (modalError) { <p class="modal-error">{{ modalError }}</p> }

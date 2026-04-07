@@ -53,7 +53,15 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 async function createEmployee(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { email, nome, cognome, birthdate, codice_fiscale, data_assunzione, termine_contratto, ruolo } = JSON.parse(event.body);
+  const raw = JSON.parse(event.body);
+  const email           = raw.email?.trim().toLowerCase();
+  const nome            = raw.nome;
+  const cognome         = raw.cognome;
+  const birthdate       = raw.birthdate;
+  const codice_fiscale  = raw.codice_fiscale?.trim().toUpperCase();
+  const data_assunzione = raw.data_assunzione;
+  const termine_contratto = raw.termine_contratto;
+  const ruolo           = raw.ruolo;
 
   if (!email || !nome || !cognome) {
     return json(400, 'Campi obbligatori mancanti: email, nome, cognome');
@@ -128,7 +136,13 @@ async function getEmployee(userId: string) {
 async function updateEmployee(userId: string, event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { nome, cognome, birthdate, codice_fiscale, data_assunzione, termine_contratto } = JSON.parse(event.body);
+  const raw = JSON.parse(event.body);
+  const nome              = raw.nome;
+  const cognome           = raw.cognome;
+  const birthdate         = raw.birthdate;
+  const codice_fiscale    = raw.codice_fiscale?.trim().toUpperCase();
+  const data_assunzione   = raw.data_assunzione;
+  const termine_contratto = raw.termine_contratto;
 
   try {
     await cognitoClient.send(new AdminUpdateUserAttributesCommand({

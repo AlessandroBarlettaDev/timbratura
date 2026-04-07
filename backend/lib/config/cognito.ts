@@ -62,9 +62,18 @@ export class CognitoConfig extends Construct {
                 adminUserPassword: true,
                 custom: true,
                 userPassword: true,
-                userSrp: true
-            }
+                userSrp: true,
+                user: true,  // abilita USER_AUTH flow per i passkey nativi Cognito
+            },
         });
+
+        // Configura WebAuthn — relyingPartyId = dominio CloudFront (senza schema)
+        // Usa l'escape hatch CDK perché webAuthnRelyingPartyId non è ancora nel L2
+        if (appUrl) {
+            const cfnPool = this.userPool.node.defaultChild as cognito.CfnUserPool;
+            cfnPool.webAuthnRelyingPartyId   = cdk.Fn.select(2, cdk.Fn.split('/', appUrl));
+            cfnPool.webAuthnUserVerification = 'required';
+        }
 
         // Crea gruppi
         this.managerGroup = new cognito.CfnUserPoolGroup(this, 'ManagerGroup', {

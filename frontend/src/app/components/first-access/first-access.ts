@@ -1,6 +1,7 @@
 import { Component, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { startRegistration } from '@simplewebauthn/browser';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import { AuthService } from '../../services/user-auth.service';
 import { ApiService } from '../../services/api.service';
 
@@ -70,6 +71,7 @@ export class FirstAccess {
 
   // Naviga alla dashboard corretta in base al ruolo
   private async navigateToDashboard() {
+    await fetchAuthSession({ forceRefresh: true });
     await this.authService.checkCurrentSession();
     if (this.authService.isManager) {
       this.router.navigate(['/dashboard-manager']);

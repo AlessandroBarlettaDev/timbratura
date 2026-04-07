@@ -1,1 +1,0 @@
-{"root":["../bin/backend.ts","../lib/backend-stack.ts","../lib/config/api.ts","../lib/config/auth.ts","../lib/config/cognito.ts","../lib/lambda/users-handler.ts","../test/backend.test.ts"],"version":"5.9.3"}

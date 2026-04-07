@@ -16,26 +16,15 @@ export class DynamoDbConfig extends Construct {
     super(scope, id);
 
     this.webAuthnTable = new dynamodb.Table(this, 'WebAuthnCredentials', {
-      tableName: 'WebAuthnCredentials',
-
-      // credentialId è la chiave primaria — usata per cercare la credenziale
-      // durante la verifica della timbratura (lookup O(1))
+      tableName:    'WebAuthnCredentials',
       partitionKey: { name: 'credentialId', type: dynamodb.AttributeType.STRING },
-
-      // Elimina la tabella quando lo stack viene distrutto (comodo in sviluppo)
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
-
-    // Indice secondario su userId — per trovare le credenziali di un utente
-    // (es. durante il setup: "l'utente ha già registrato un dispositivo?")
     this.webAuthnTable.addGlobalSecondaryIndex({
-      indexName: 'userId-index',
+      indexName:    'userId-index',
       partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
     });
-
-    new cdk.CfnOutput(this, 'WebAuthnTableName', {
-      value: this.webAuthnTable.tableName,
-    });
+    new cdk.CfnOutput(this, 'WebAuthnTableName', { value: this.webAuthnTable.tableName });
 
     this.stazioniTable = new dynamodb.Table(this, 'Stazioni', {
       tableName: 'Stazioni',

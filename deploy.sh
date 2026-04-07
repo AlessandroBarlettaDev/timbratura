@@ -40,6 +40,7 @@ if [ "${1}" = "frontend" ]; then                                                
 fi
 
 # --- Deploy completo ---
+
 echo "▶ Step 1/4 — Deploy infrastruttura AWS..."
 cd "$BACKEND_DIR"
 npx cdk deploy --require-approval never --outputs-file /tmp/cdk-outputs.json 2>&1 | tail -5

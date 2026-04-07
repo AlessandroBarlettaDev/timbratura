@@ -6,7 +6,6 @@ import { HostingConfig } from './config/hosting';
 import { Construct } from 'constructs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
-import { UserPoolOperation } from 'aws-cdk-lib/aws-cognito';
 import * as path from 'path';
 
 export class BackendStack extends cdk.Stack {
@@ -22,8 +21,6 @@ export class BackendStack extends cdk.Stack {
 
     // DynamoDB
     const dynamo = new DynamoDbConfig(this, 'DynamoDbConfig');
-    // RP_ID è solo il dominio senza schema (es. "abc.cloudfront.net")
-    const rpId    = cdk.Fn.select(2, cdk.Fn.split('/', appUrl));
 
     // Lambda per gestione utenti
     const usersHandler = new NodejsFunction(this, 'UsersHandler', {
@@ -47,15 +44,9 @@ export class BackendStack extends cdk.Stack {
     );
     dynamo.webAuthnTable.grantReadWriteData(usersHandler);
 
-    // Lambda trigger — personalizza l'email di benvenuto inviata da Cognito
-    const customMessageHandler = new NodejsFunction(this, 'CustomMessageHandler', {
-      runtime: Runtime.NODEJS_22_X,
-      entry:   path.join(__dirname, 'lambda/custom-message.ts'),
-      handler: 'handler',
-    });
-    cognito.userPool.addTrigger(UserPoolOperation.CUSTOM_MESSAGE, customMessageHandler);
 
-    // Lambda per la registrazione biometrica (WebAuthn)
+    // Lambda per la registrazione biometrica (WebAuthn custom)
+    const rpId = cdk.Fn.select(2, cdk.Fn.split('/', appUrl));
     const biometricHandler = new NodejsFunction(this, 'BiometricHandler', {
       runtime: Runtime.NODEJS_22_X,
       entry:   path.join(__dirname, 'lambda/biometric-handler.ts'),
@@ -69,6 +60,8 @@ export class BackendStack extends cdk.Stack {
     });
     dynamo.webAuthnTable.grantReadWriteData(biometricHandler);
 
+    const jwtSecret = process.env.JWT_SECRET ?? 'timbratura-stazioni-secret-changeme';
+
     // Lambda per la gestione delle stazioni di timbratura
     const stazioniHandler = new NodejsFunction(this, 'StazioniHandler', {
       runtime: Runtime.NODEJS_22_X,
@@ -78,7 +71,7 @@ export class BackendStack extends cdk.Stack {
       environment: {
         STAZIONI_TABLE_NAME:   dynamo.stazioniTable.tableName,
         TIMBRATURE_TABLE_NAME: dynamo.timbratureTable.tableName,
-        JWT_SECRET: 'timbratura-stazioni-secret-changeme',
+        JWT_SECRET: jwtSecret,
         APP_URL:    appUrl,
       },
     });
@@ -95,7 +88,7 @@ export class BackendStack extends cdk.Stack {
         WEBAUTHN_TABLE_NAME:   dynamo.webAuthnTable.tableName,
         STAZIONI_TABLE_NAME:   dynamo.stazioniTable.tableName,
         USER_POOL_ID:          cognito.userPool.userPoolId,
-        JWT_SECRET:            'timbratura-stazioni-secret-changeme',
+        JWT_SECRET:            jwtSecret,
         RP_ID:                 rpId,
         RP_ORIGIN:             appUrl,
       },
@@ -107,7 +100,7 @@ export class BackendStack extends cdk.Stack {
     cognito.userPool.grant(timbratureHandler, 'cognito-idp:AdminGetUser');
 
     // API Gateway
-    const api = new ApiConfig(this, 'Api', { userPool: cognito.userPool });
+    const api = new ApiConfig(this, 'Api', { userPool: cognito.userPool, appUrl });
 
     api.addUsersRoutes(usersHandler);
     api.addBiometricRoutes(biometricHandler);

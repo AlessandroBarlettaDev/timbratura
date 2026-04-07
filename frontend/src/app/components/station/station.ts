@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import QRCode from 'qrcode';
 import { StationAuthService } from '../../services/station-auth.service';
 import { ApiService } from '../../services/api.service';
@@ -14,57 +15,69 @@ const QR_REFRESH_MS = 3 * 60 * 1000; // 3 minuti — stesso TTL del backend
 })
 export class Station implements OnInit, OnDestroy {
   descrizione    = '';
-  qrDataUrl      = '';             // immagine QR generata da qrcode
+  qrDataUrl      = '';
   secondiRimasti = QR_REFRESH_MS / 1000;
-  orario         = '';             // ora corrente aggiornata ogni secondo
-  scadenzaQrOra  = '';             // orario di scadenza del QR (HH:MM:SS)
+  orario         = '';
+  scadenzaQrOra  = '';
   presenti       = 0;
   errore: string | null = null;
 
-  private scadenzaTimestamp = 0;   // timestamp Unix scadenza QR
-  private refreshTimer: any;       // interval per il rinnovo del QR
-  private countdownTimer: any;     // interval per il countdown visivo + orologio
+  // Mappa GPS stazione
+  mapUrl: SafeResourceUrl | null = null;
+
+  // Notifica ultima timbratura
+  ultimaNotifica: { nome: string; cognome: string; tipo: string; ora: string } | null = null;
+  private notificaTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private scadenzaTimestamp = 0;
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  private countdownTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private stationAuth: StationAuthService,
     private api:         ApiService,
     private router:      Router,
+    private sanitizer:   DomSanitizer,
     private cdr:         ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
-    // Redirect al login se la stazione non è autenticata
     if (!this.stationAuth.isLoggedIn()) {
       this.router.navigate(['/login']);
       return;
     }
 
     this.descrizione = this.stationAuth.getStazione()?.descrizione ?? '';
-
-    // Avvia subito l'orologio — si aggiorna ogni secondo insieme al countdown
     this.avviaOrologio();
-
-    // Acquisisce la posizione GPS e la invia al backend
     this.inviaPosizioneGps();
-
-    // Carica subito il primo QR poi lo rinnova ogni 3 minuti
     this.rinnovaQr();
     this.refreshTimer = setInterval(() => this.rinnovaQr(), QR_REFRESH_MS);
   }
 
   ngOnDestroy() {
-    clearInterval(this.refreshTimer);
-    clearInterval(this.countdownTimer);
+    if (this.refreshTimer)   clearInterval(this.refreshTimer);
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
+    if (this.notificaTimer)  clearTimeout(this.notificaTimer);
   }
 
-  // Richiede il QR al backend e lo converte in immagine; aggiorna anche il GPS
   private rinnovaQr() {
     this.inviaPosizioneGps();
     this.api.getStazioneQr().subscribe({
-      next: async (res: { qrUrl: string; expiresAt: number; presenti: number }) => {
-        this.scadenzaTimestamp = res.expiresAt;
-        this.presenti          = res.presenti ?? 0;
+      next: async (res) => {
+        const presentiPrecedenti = this.presenti;
+        this.scadenzaTimestamp   = res.expiresAt;
+        this.presenti            = res.presenti ?? 0;
         this.qrDataUrl = await QRCode.toDataURL(res.qrUrl, { width: 380, margin: 2 });
+
+        if (res.lat != null && res.lng != null) {
+          const url = `https://maps.google.com/maps?q=${res.lat},${res.lng}&z=17&output=embed`;
+          this.mapUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+        }
+
+        if (res.ultimaTimbratura && this.presenti !== presentiPrecedenti) {
+          this.mostraNotifica(res.ultimaTimbratura);
+        }
+
         this.cdr.detectChanges();
       },
       error: (err: any) => {
@@ -74,38 +87,32 @@ export class Station implements OnInit, OnDestroy {
     });
   }
 
-  // Interval unico ogni secondo: aggiorna orologio, countdown QR e orario scadenza
+  private mostraNotifica(timbratura: any) {
+    const ora = new Date(timbratura.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    this.ultimaNotifica = { nome: timbratura.nome, cognome: timbratura.cognome, tipo: timbratura.tipo, ora };
+    if (this.notificaTimer) clearTimeout(this.notificaTimer);
+    this.notificaTimer = setTimeout(() => { this.ultimaNotifica = null; this.cdr.detectChanges(); }, 5000);
+  }
+
   private avviaOrologio() {
     const tick = () => {
-      const ora = new Date();
-      this.orario = ora.toLocaleTimeString('it-IT');
-
+      this.orario = new Date().toLocaleTimeString('it-IT');
       if (this.scadenzaTimestamp > 0) {
-        const secondiAllaScadenza = this.scadenzaTimestamp - Math.floor(Date.now() / 1000);
-        this.secondiRimasti = Math.max(0, secondiAllaScadenza);
-
-        // Mostra l'orario assoluto di scadenza del QR
-        const scadenza = new Date(this.scadenzaTimestamp * 1000);
-        this.scadenzaQrOra = scadenza.toLocaleTimeString('it-IT');
+        this.secondiRimasti = Math.max(0, this.scadenzaTimestamp - Math.floor(Date.now() / 1000));
+        this.scadenzaQrOra  = new Date(this.scadenzaTimestamp * 1000).toLocaleTimeString('it-IT');
       }
-
       this.cdr.detectChanges();
     };
-
-    tick(); // prima esecuzione immediata
+    tick();
     this.countdownTimer = setInterval(tick, 1000);
   }
 
-  // Rileva la posizione GPS del dispositivo e la invia al backend
   private inviaPosizioneGps() {
     if (!navigator.geolocation) return;
-
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        this.api.updateStazionePosition(pos.coords.latitude, pos.coords.longitude).subscribe({
-          error: (err: any) => console.error('Errore invio posizione:', err),
-        });
-      },
+      (pos) => this.api.updateStazionePosition(pos.coords.latitude, pos.coords.longitude).subscribe({
+        error: (err: any) => console.error('Errore invio posizione:', err),
+      }),
       (err: any) => console.warn('Posizione GPS non disponibile:', err.message),
     );
   }

@@ -188,12 +188,28 @@ async function getQr(stationId: string) {
     if (!attuale || t.timestamp > attuale.timestamp) ultimaPerUtente.set(t.userId, t);
   }
   let presenti = 0;
+  let ultimaTimbratura: any = null;
+  let ultimoTimestamp = '';
   for (const t of ultimaPerUtente.values()) {
     if (t.tipo === 'entrata') presenti++;
   }
+  // Trova l'ultima timbratura assoluta (qualsiasi tipo) per la notifica
+  for (const t of timbratureOggi) {
+    if (!ultimoTimestamp || t.timestamp > ultimoTimestamp) {
+      ultimoTimestamp = t.timestamp;
+      ultimaTimbratura = t;
+    }
+  }
 
   const qrUrl = `${APP_URL}/timbratura?s=${stationId}&t=${qrToken}&exp=${expiresAt}`;
-  return json(200, { qrUrl, expiresAt, presenti });
+  return json(200, {
+    qrUrl,
+    expiresAt,
+    presenti,
+    lat: stazione?.lat ?? null,
+    lng: stazione?.lng ?? null,
+    ultimaTimbratura: ultimaTimbratura ?? null,
+  });
 }
 
 // --- POST /stazioni/me/position — aggiorna la posizione GPS della stazione ---

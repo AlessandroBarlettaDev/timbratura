@@ -13,7 +13,7 @@ type Step = 'verifica' | 'biometrica' | 'conferma' | 'errore';
 })
 export class Timbratura implements OnInit {
   step: Step   = 'verifica';
-  tipo          = '';   // 'entrata' o 'uscita' — determinato dal backend
+  tipo          = '';
   nome          = '';
   cognome       = '';
   durataMinuti: number | undefined;
@@ -50,13 +50,21 @@ export class Timbratura implements OnInit {
     this.step = 'biometrica';
   }
 
-  // Acquisisce la posizione GPS del dispositivo
-  private getPosizione(): Promise<{ lat: number; lng: number } | null> {
-    return new Promise(resolve => {
-      if (!navigator.geolocation) { resolve(null); return; }
+  private getPosizione(): Promise<{ lat: number; lng: number }> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Il tuo dispositivo non supporta la geolocalizzazione.'));
+        return;
+      }
       navigator.geolocation.getCurrentPosition(
         pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        ()  => resolve(null),
+        err => {
+          if (err.code === err.PERMISSION_DENIED) {
+            reject(new Error('Permesso GPS negato. Abilita la geolocalizzazione nelle impostazioni del browser e riprova.'));
+          } else {
+            reject(new Error('Impossibile rilevare la posizione GPS. Assicurati di avere il GPS attivo e riprova.'));
+          }
+        },
         { timeout: 8000, maximumAge: 30000 },
       );
     });
@@ -67,14 +75,20 @@ export class Timbratura implements OnInit {
     this.caricamento = true;
     this.errore      = '';
 
+    let posizione: { lat: number; lng: number };
     try {
-      // Acquisisce GPS e challenge in parallelo
-      const [posizione, authResult] = await Promise.all([
-        this.getPosizione(),
-        new Promise<any>((resolve, reject) => {
-          this.api.startBiometricAuthentication().subscribe({ next: resolve, error: reject });
-        }),
-      ]);
+      posizione = await this.getPosizione();
+    } catch (err: any) {
+      this.mostraErrore(err.message);
+      this.caricamento = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    try {
+      const authResult = await new Promise<any>((resolve, reject) => {
+        this.api.startBiometricAuthentication().subscribe({ next: resolve, error: reject });
+      });
 
       const { options, sessionId } = authResult;
       const assertion = await startAuthentication({ optionsJSON: options, useBrowserAutofill: false });
@@ -86,8 +100,8 @@ export class Timbratura implements OnInit {
           expiresAt: this.expiresAt,
           assertion,
           sessionId,
-          lat: posizione?.lat,
-          lng: posizione?.lng,
+          lat: posizione.lat,
+          lng: posizione.lng,
         }).subscribe({ next: resolve, error: reject });
       });
 
@@ -107,7 +121,7 @@ export class Timbratura implements OnInit {
     }
   }
 
-  // Step 2 — salva definitivamente e vai alla dashboard
+  // Step 2 — salva definitivamente
   async timbra() {
     this.caricamento = true;
     this.errore      = '';
@@ -118,7 +132,6 @@ export class Timbratura implements OnInit {
       });
       this.durataMinuti = result.durataMinuti;
       this.cdr.detectChanges();
-      // Breve pausa per mostrare la durata prima del redirect
       await new Promise(r => setTimeout(r, this.tipo === 'uscita' && result.durataMinuti ? 1800 : 0));
       this.router.navigate(['/dashboard-employee']);
 

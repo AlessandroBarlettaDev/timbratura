@@ -14,6 +14,7 @@ type Section = 'dashboard' | 'utenti' | 'stazioni';
 })
 export class DashboardManager implements OnInit {
   activeSection: Section = 'dashboard';
+  sidebarOpen = false;
   utenti:   any[] = [];
   stazioni: any[] = [];
   selectedUser:     any = null;
@@ -58,6 +59,7 @@ export class DashboardManager implements OnInit {
     this.selectedUser     = null;
     this.selectedStazione = null;
     this.activeSection    = section;
+    this.sidebarOpen      = false;
     if (section === 'dashboard') this.loadDashboard();
     if (section === 'utenti'   && this.utenti.length   === 0) this.loadUtenti();
     if (section === 'stazioni' && this.stazioni.length === 0) this.loadStazioni();
@@ -68,6 +70,7 @@ export class DashboardManager implements OnInit {
     const me = this.authService.utente();
     if (!me) return;
     this.activeSection = 'utenti';
+    this.sidebarOpen   = false;
     this.selectUser({ id: me.userId });
   }
 
@@ -135,7 +138,7 @@ export class DashboardManager implements OnInit {
     });
   }
 
-  private loadUtenti() {
+  loadUtenti() {
     this.isLoading = true;
     this.apiService.getUsers().subscribe({
       next: (data) => { this.utenti = data; this.isLoading = false; this.cdr.detectChanges(); },
@@ -276,6 +279,61 @@ export class DashboardManager implements OnInit {
     };
   }
 
+  // --- Statistiche timbrature del periodo selezionato ---
+
+  get oreLavorate(): string {
+    const minuti = this.calcolaMinutiLavorati(this.timbrature);
+    return this.formatDurata(minuti);
+  }
+
+  get mediaGiornaliera(): string {
+    const giorni = this.giorniConPresenza(this.timbrature);
+    if (giorni === 0) return '—';
+    const minuti = this.calcolaMinutiLavorati(this.timbrature);
+    return this.formatDurata(Math.round(minuti / giorni));
+  }
+
+  get giorniLavorati(): number {
+    return this.giorniConPresenza(this.timbrature);
+  }
+
+  private calcolaMinutiLavorati(timbrature: any[]): number {
+    // Raggruppa per giorno, poi calcola coppie entrata/uscita
+    const perGiorno = new Map<string, any[]>();
+    for (const t of timbrature) {
+      const giorno = t.timestamp?.slice(0, 10);
+      if (!giorno) continue;
+      if (!perGiorno.has(giorno)) perGiorno.set(giorno, []);
+      perGiorno.get(giorno)!.push(t);
+    }
+    let totaleMinuti = 0;
+    for (const eventi of perGiorno.values()) {
+      const ordinati = [...eventi].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      let ultimaEntrata: Date | null = null;
+      for (const e of ordinati) {
+        if (e.tipo === 'entrata') {
+          ultimaEntrata = new Date(e.timestamp);
+        } else if (e.tipo === 'uscita' && ultimaEntrata) {
+          totaleMinuti += (new Date(e.timestamp).getTime() - ultimaEntrata.getTime()) / 60_000;
+          ultimaEntrata = null;
+        }
+      }
+    }
+    return Math.round(totaleMinuti);
+  }
+
+  private giorniConPresenza(timbrature: any[]): number {
+    const giorni = new Set(timbrature.map(t => t.timestamp?.slice(0, 10)).filter(Boolean));
+    return giorni.size;
+  }
+
+  private formatDurata(minuti: number): string {
+    if (minuti <= 0) return '0h 0min';
+    const h = Math.floor(minuti / 60);
+    const m = minuti % 60;
+    return h > 0 ? `${h}h ${m}min` : `${m}min`;
+  }
+
   // --- Gestione stazioni ---
   selectStazione(stazione: any) {
     this.apiService.getStazione(stazione.stationId).subscribe({
@@ -322,11 +380,27 @@ export class DashboardManager implements OnInit {
     });
   }
 
-  private loadStazioni() {
+  loadStazioni() {
     this.isLoading = true;
     this.apiService.getStazioni().subscribe({
       next: (data) => { this.stazioni = data; this.isLoading = false; this.cdr.detectChanges(); },
       error: (err)  => { console.error('Errore caricamento stazioni:', err); this.isLoading = false; this.cdr.detectChanges(); },
     });
+  }
+
+  // Restituisce un Set di userId attualmente presenti, calcolato dalla dashboard odierna
+  get presentiOggiSet(): Set<string> {
+    const presenti = new Set<string>();
+    for (const stazione of this.dashboardStazioni) {
+      const ultimaPerUtente = new Map<string, any>();
+      for (const t of stazione.timbrature ?? []) {
+        const attuale = ultimaPerUtente.get(t.userId);
+        if (!attuale || t.timestamp > attuale.timestamp) ultimaPerUtente.set(t.userId, t);
+      }
+      for (const t of ultimaPerUtente.values()) {
+        if (t.tipo === 'entrata') presenti.add(t.userId);
+      }
+    }
+    return presenti;
   }
 }

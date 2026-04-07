@@ -6,6 +6,7 @@ import { Construct } from 'constructs';
 // Proprietà per la configurazione dell'API
 interface ApiConfigProps {
   userPool: cognito.IUserPool;
+  appUrl:   string;
 }
 
 export class ApiConfig extends Construct {
@@ -14,17 +15,18 @@ export class ApiConfig extends Construct {
 
   constructor(scope: Construct, id: string, props: ApiConfigProps) {
     super(scope, id);
-    this.api = this.createApi();
+    this.api = this.createApi(props.appUrl);
     this.authorizer = this.createAuthorizer(props.userPool);
   }
 
-  // Crea la RestApi con CORS
-  private createApi(): apigateway.RestApi {
+  // Crea la RestApi con CORS ristretto al dominio CloudFront
+  private createApi(appUrl: string): apigateway.RestApi {
     return new apigateway.RestApi(this, 'TimbraturaApi', {
       restApiName: 'Timbratura Service',
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS, // TODO: restringere in prod
+        allowOrigins: [appUrl],
         allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'Authorization', 'X-Amz-Date', 'X-Api-Key'],
       },
     });
   }
@@ -62,21 +64,17 @@ export class ApiConfig extends Construct {
 
   // Aggiunge le rotte /biometric — registrazione (Cognito) + autenticazione (pubblica)
   public addBiometricRoutes(handler: lambda.IFunction) {
-    const cognitoOpts = {
-      authorizer:        this.authorizer,
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-    };
-    const noAuth = { authorizationType: apigateway.AuthorizationType.NONE };
+    const cognitoOpts = { authorizer: this.authorizer, authorizationType: apigateway.AuthorizationType.COGNITO };
+    const noAuth      = { authorizationType: apigateway.AuthorizationType.NONE };
 
     const biometric    = this.api.root.addResource('biometric');
     const registration = biometric.addResource('registration');
-    registration.addResource('start').addMethod('POST',    new apigateway.LambdaIntegration(handler), cognitoOpts); // Genera challenge registrazione
-    registration.addResource('complete').addMethod('POST', new apigateway.LambdaIntegration(handler), cognitoOpts); // Verifica e salva credenziale
+    registration.addResource('start').addMethod('POST',    new apigateway.LambdaIntegration(handler), cognitoOpts);
+    registration.addResource('complete').addMethod('POST', new apigateway.LambdaIntegration(handler), cognitoOpts);
 
-    // Autenticazione biometrica — pubblica (la biometria è la prova d'identità)
     const authentication = biometric.addResource('authentication');
-    authentication.addResource('start').addMethod('POST',    new apigateway.LambdaIntegration(handler), noAuth); // Genera challenge autenticazione
-    authentication.addResource('complete').addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth); // Verifica assertion (per test)
+    authentication.addResource('start').addMethod('POST',    new apigateway.LambdaIntegration(handler), noAuth);
+    authentication.addResource('complete').addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth);
   }
 
   // Aggiunge le rotte /timbrature

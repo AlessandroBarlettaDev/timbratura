@@ -11,9 +11,10 @@ import { authInterceptor } from './services/auth-interceptor';
 Amplify.configure({
   Auth: {
     Cognito: {
-      userPoolId: environment.UserPoolId,
-      userPoolClientId: environment.UserPoolClientId,
-      signUpVerificationMethod: 'code'
+      userPoolId:               environment.UserPoolId,
+      userPoolClientId:         environment.UserPoolClientId,
+      signUpVerificationMethod: 'code',
+      loginWith: { email: true },
     }
   }
 });

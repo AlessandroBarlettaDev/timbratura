@@ -5,13 +5,14 @@ import { DashboardEmployee } from './components/dashboard-employee/dashboard-emp
 import { DashboardManager } from './components/dashboard-manager/dashboard-manager';
 import { Station } from './components/station/station';
 import { Timbratura } from './components/timbratura/timbratura';
+import { authGuard, onboardingGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   { path: '',                   redirectTo: '/login', pathMatch: 'full' },
   { path: 'login',              component: Login },
-  { path: 'first-access',       component: FirstAccess },
-  { path: 'dashboard-employee', component: DashboardEmployee },
-  { path: 'dashboard-manager',  component: DashboardManager },
-  { path: 'stazione',           component: Station },
-  { path: 'timbratura',         component: Timbratura },   // aperta scansionando il QR
+  { path: 'first-access',       component: FirstAccess,        canActivate: [authGuard] },
+  { path: 'dashboard-employee', component: DashboardEmployee,  canActivate: [onboardingGuard] },
+  { path: 'dashboard-manager',  component: DashboardManager,   canActivate: [onboardingGuard] },
+  { path: 'stazione',           component: Station },           // login proprio con JWT custom
+  { path: 'timbratura',         component: Timbratura },        // pubblica — aperta da QR scan
 ];

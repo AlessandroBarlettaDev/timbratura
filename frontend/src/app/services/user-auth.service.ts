@@ -7,6 +7,8 @@ export class AuthService {
     currentUser = signal<any>(null);
     userGroups = signal<string[]>([]);
     utente = signal<{ userId: string; nome: string; cognome: string; email: string } | null>(null);
+    passwordChanged = signal<boolean>(false);
+    biometricsReg   = signal<boolean>(false);
 
     constructor() {
         // Controlla la sessione all'avvio dell'app
@@ -42,6 +44,17 @@ export class AuthService {
         await this.checkCurrentSession();
     }
 
+    // Login con passkey Cognito (USER_AUTH + WEB_AUTHN) — richiede email per identificare l'utente
+    async loginWithBiometrics(email: string): Promise<void> {
+        await signOut().catch(() => {});
+        const { isSignedIn } = await signIn({
+            username: email,
+            options:  { authFlowType: 'USER_AUTH', preferredChallenge: 'WEB_AUTHN' },
+        });
+        if (!isSignedIn) throw new Error('Autenticazione biometrica non completata');
+        await this.checkCurrentSession();
+    }
+
     // Recupera i dati dell'utente e i gruppi dai token
     async checkCurrentSession() {
         try {
@@ -62,11 +75,15 @@ export class AuthService {
                     cognome: payload?.['family_name'] as string ?? '',
                     email:   payload?.['email']       as string ?? '',
                 });
+                this.passwordChanged.set(payload?.['custom:password_changed'] === 'true');
+                this.biometricsReg.set(payload?.['custom:biometrics_reg']     === 'true');
             }
         } catch (err) {
             this.currentUser.set(null);
             this.userGroups.set([]);
             this.utente.set(null);
+            this.passwordChanged.set(false);
+            this.biometricsReg.set(false);
         }
     }
 
