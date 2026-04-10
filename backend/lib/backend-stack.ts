@@ -99,6 +99,21 @@ export class BackendStack extends cdk.Stack {
     // Permesso per leggere nome/cognome del dipendente da Cognito al momento della timbratura
     cognito.userPool.grant(timbratureHandler, 'cognito-idp:AdminGetUser');
 
+    // Lambda per le richieste di timbratura manuale
+    const requestsHandler = new NodejsFunction(this, 'RequestsHandler', {
+      runtime: Runtime.NODEJS_22_X,
+      entry:   path.join(__dirname, 'lambda/requests-handler.ts'),
+      handler: 'handler',
+      environment: {
+        REQUESTS_TABLE_NAME:   dynamo.requestsTable.tableName,
+        TIMBRATURE_TABLE_NAME: dynamo.timbratureTable.tableName,
+        USER_POOL_ID:          cognito.userPool.userPoolId,
+      },
+    });
+    dynamo.requestsTable.grantReadWriteData(requestsHandler);
+    dynamo.timbratureTable.grantReadWriteData(requestsHandler);
+    cognito.userPool.grant(requestsHandler, 'cognito-idp:AdminGetUser');
+
     // API Gateway
     const api = new ApiConfig(this, 'Api', { userPool: cognito.userPool, appUrl });
 
@@ -106,5 +121,6 @@ export class BackendStack extends cdk.Stack {
     api.addBiometricRoutes(biometricHandler);
     api.addStazioniRoutes(stazioniHandler);
     api.addTimbratureRoutes(timbratureHandler);
+    api.addRequestsRoutes(requestsHandler);
   }
 }

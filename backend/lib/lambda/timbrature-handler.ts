@@ -83,7 +83,7 @@ async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
   const expectedToken = crypto.createHmac('sha256', JWT_SECRET).update(`${stationId}:${expiresAt}`).digest('hex');
   if (qrToken !== expectedToken) return json(401, 'QR non valido');
 
-  const erroreGps = await validaPosizioneGps(stationId, lat, lng);
+  const { errore: erroreGps, descrizione: stazioneDescrizione } = await validaPosizioneGps(stationId, lat, lng);
   if (erroreGps) return json(403, erroreGps);
 
   let userId: string;
@@ -116,7 +116,7 @@ async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
       userId:    `pending#${confirmToken}`,
       timestamp: pendingTimestamp,
       realUserId: userId,
-      nome, cognome, stationId, tipo,
+      nome, cognome, stationId, stazioneDescrizione, tipo,
       data:      oggi,
       expiresAt: Math.floor(Date.now() / 1000) + 300,
     }),
@@ -151,13 +151,14 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
   await dynamo.send(new PutItemCommand({
     TableName: TIMBRATURE_TABLE,
     Item: marshall({
-      userId:    pending.realUserId,
-      nome:      pending.nome,
-      cognome:   pending.cognome,
+      userId:              pending.realUserId,
+      nome:                pending.nome,
+      cognome:             pending.cognome,
       timestamp,
-      data:      pending.data,
-      stationId: pending.stationId,
-      tipo:      pending.tipo,
+      data:                pending.data,
+      stationId:           pending.stationId,
+      stazioneDescrizione: pending.stazioneDescrizione ?? '',
+      tipo:                pending.tipo,
     }),
   }));
 
@@ -190,7 +191,7 @@ async function registraTimbratura(event: APIGatewayProxyEvent) {
     .digest('hex');
   if (qrToken !== expectedToken) return json(401, 'QR non valido');
 
-  const erroreGps = await validaPosizioneGps(stationId, lat, lng);
+  const { errore: erroreGps, descrizione: stazioneDescrizione } = await validaPosizioneGps(stationId, lat, lng);
   if (erroreGps) return json(403, erroreGps);
 
   let userId: string;
@@ -222,7 +223,7 @@ async function registraTimbratura(event: APIGatewayProxyEvent) {
   const timestamp = new Date().toISOString();
   await dynamo.send(new PutItemCommand({
     TableName: TIMBRATURE_TABLE,
-    Item: marshall({ userId, nome, cognome, timestamp, data: oggi, stationId, tipo }),
+    Item: marshall({ userId, nome, cognome, timestamp, data: oggi, stationId, stazioneDescrizione, tipo }),
   }));
 
   return json(200, { tipo, timestamp, userId, nome, cognome });
@@ -309,10 +310,10 @@ async function getTimbratureUtente(userId: string, mese?: string) {
 }
 
 // Valida la distanza GPS tra dipendente e stazione.
-// Ritorna null se OK, oppure un messaggio di errore.
-async function validaPosizioneGps(stationId: string, lat?: number, lng?: number): Promise<string | null> {
+// Ritorna { errore, descrizione }: errore è null se la validazione passa, descrizione è il nome leggibile della stazione.
+async function validaPosizioneGps(stationId: string, lat?: number, lng?: number): Promise<{ errore: string | null; descrizione: string }> {
   if (lat == null || lng == null)
-    return 'Posizione GPS non disponibile. Abilita la geolocalizzazione e riprova.';
+    return { errore: 'Posizione GPS non disponibile. Abilita la geolocalizzazione e riprova.', descrizione: '' };
 
   const result = await dynamo.send(new QueryCommand({
     TableName:                 STAZIONI_TABLE,
@@ -320,17 +321,17 @@ async function validaPosizioneGps(stationId: string, lat?: number, lng?: number)
     ExpressionAttributeValues: marshall({ ':sid': stationId }),
     Limit: 1,
   }));
-  if (!result.Items?.length) return 'Stazione non trovata.';
+  if (!result.Items?.length) return { errore: 'Stazione non trovata.', descrizione: '' };
   const stazione = unmarshall(result.Items[0]);
 
   if (stazione.lat == null || stazione.lng == null)
-    return 'La stazione non ha una posizione GPS configurata. Contatta il manager.';
+    return { errore: 'La stazione non ha una posizione GPS configurata. Contatta il manager.', descrizione: stazione.descrizione ?? '' };
 
   const distanza = haversineMeters(lat, lng, stazione.lat, stazione.lng);
   if (distanza > MAX_DISTANCE_METERS)
-    return `Sei troppo lontano dalla stazione (${Math.round(distanza)} m). Avvicinati entro ${MAX_DISTANCE_METERS} m.`;
+    return { errore: `Sei troppo lontano dalla stazione (${Math.round(distanza)} m). Avvicinati entro ${MAX_DISTANCE_METERS} m.`, descrizione: stazione.descrizione ?? '' };
 
-  return null;
+  return { errore: null, descrizione: stazione.descrizione ?? '' };
 }
 
 // Recupera l'ultima timbratura di un utente per una data specifica

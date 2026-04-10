@@ -11,7 +11,19 @@ import {
 import { DynamoDBClient, QueryCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { getJwtClaims, isManagerClaims } from './auth';
-import { cognitoErrorToHttp } from './errors';
+
+function cognitoErrorToHttp(err: any): { status: number; message: string } {
+  switch (err.name) {
+    case 'UsernameExistsException':  return { status: 409, message: 'Email già registrata' };
+    case 'UserNotFoundException':    return { status: 404, message: 'Utente non trovato' };
+    case 'InvalidPasswordException': return { status: 400, message: 'Password non valida: deve contenere almeno 8 caratteri, una maiuscola, un numero e un simbolo' };
+    case 'InvalidParameterException':return { status: 400, message: `Parametro non valido: ${err.message}` };
+    case 'NotAuthorizedException':   return { status: 403, message: 'Operazione non autorizzata' };
+    case 'TooManyRequestsException': return { status: 429, message: 'Troppe richieste. Riprova tra qualche secondo.' };
+    case 'LimitExceededException':   return { status: 429, message: 'Limite operazioni raggiunto. Riprova più tardi.' };
+    default:                         return { status: 500, message: `Errore interno: ${err.message}` };
+  }
+}
 
 const cognitoClient = new CognitoIdentityProviderClient({});
 const dynamoClient  = new DynamoDBClient({});

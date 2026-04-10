@@ -99,6 +99,21 @@ export class ApiConfig extends Construct {
       .addMethod('GET', new apigateway.LambdaIntegration(handler), cognitoOpts);           // Dashboard odierna aggregata per stazione (manager)
   }
 
+  // Aggiunge le rotte /requests — dipendente (Cognito) e manager (Cognito)
+  public addRequestsRoutes(handler: lambda.IFunction) {
+    const cognitoOpts = { authorizer: this.authorizer, authorizationType: apigateway.AuthorizationType.COGNITO };
+
+    const requests = this.api.root.addResource('requests');
+    requests.addMethod('POST', new apigateway.LambdaIntegration(handler), cognitoOpts); // Crea richiesta (employee)
+    requests.addMethod('GET',  new apigateway.LambdaIntegration(handler), cognitoOpts); // Lista pendenti (manager)
+
+    requests.addResource('me').addMethod('GET', new apigateway.LambdaIntegration(handler), cognitoOpts); // Mie richieste (employee)
+
+    const requestId = requests.addResource('{id}');
+    requestId.addResource('approve').addMethod('POST', new apigateway.LambdaIntegration(handler), cognitoOpts); // Approva (manager)
+    requestId.addResource('reject').addMethod('POST',  new apigateway.LambdaIntegration(handler), cognitoOpts); // Rifiuta (manager)
+  }
+
   // Aggiunge tutte le rotte /users protette, collegate alla stessa lambda
   public addUsersRoutes(handler: lambda.IFunction) {
     const opts = {

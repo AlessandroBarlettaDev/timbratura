@@ -26,7 +26,10 @@ export const handler = async (event: APIGatewayProxyEvent) => {
     const claims = getJwtClaims(event);
     const userId = claims['cognito:username'];
     if (!userId) return json(401, 'Non autenticato');
-    return await startRegistration(userId);
+    const email       = claims['email']       as string | undefined;
+    const given_name  = claims['given_name']  as string | undefined;
+    const family_name = claims['family_name'] as string | undefined;
+    return await startRegistration(userId, email, given_name, family_name);
   }
   if (resource === '/biometric/registration/complete' && httpMethod === 'POST') {
     const claims = getJwtClaims(event);
@@ -43,7 +46,7 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 };
 
 // --- POST /biometric/registration/start ---
-async function startRegistration(userId: string) {
+async function startRegistration(userId: string, email?: string, givenName?: string, familyName?: string) {
   const existing = await getCredentialsByUser(userId);
   const excludeCredentials = existing.map((c: any) => ({
     id:         c.credentialId,
@@ -55,7 +58,8 @@ async function startRegistration(userId: string) {
     rpName:                  RP_NAME,
     rpID:                    RP_ID,
     userID:                  new TextEncoder().encode(userId),
-    userName:                userId,
+    userName:                email ?? userId,
+    userDisplayName:         (givenName && familyName) ? `${givenName} ${familyName}` : (email ?? userId),
     attestationType:         'none',
     excludeCredentials,
     authenticatorSelection: {

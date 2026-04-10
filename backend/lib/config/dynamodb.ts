@@ -12,6 +12,9 @@ export class DynamoDbConfig extends Construct {
   // Tabella che memorizza le timbrature (entrate/uscite) dei dipendenti
   public readonly timbratureTable: dynamodb.Table;
 
+  // Tabella che memorizza le richieste di timbratura manuale
+  public readonly requestsTable: dynamodb.Table;
+
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
@@ -67,5 +70,27 @@ export class DynamoDbConfig extends Construct {
     new cdk.CfnOutput(this, 'TimbratureTableName', {
       value: this.timbratureTable.tableName,
     });
+
+    this.requestsTable = new dynamodb.Table(this, 'Requests', {
+      tableName:    'Requests',
+      partitionKey: { name: 'requestId', type: dynamodb.AttributeType.STRING },
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // GSI su userId — il dipendente recupera le proprie richieste
+    this.requestsTable.addGlobalSecondaryIndex({
+      indexName:    'userId-index',
+      partitionKey: { name: 'userId',    type: dynamodb.AttributeType.STRING },
+      sortKey:      { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+    });
+
+    // GSI su stato — il manager recupera tutte le richieste pendenti
+    this.requestsTable.addGlobalSecondaryIndex({
+      indexName:    'stato-index',
+      partitionKey: { name: 'stato',     type: dynamodb.AttributeType.STRING },
+      sortKey:      { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+    });
+
+    new cdk.CfnOutput(this, 'RequestsTableName', { value: this.requestsTable.tableName });
   }
 }

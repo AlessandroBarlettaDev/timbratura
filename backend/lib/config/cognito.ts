@@ -21,6 +21,19 @@ export class CognitoConfig extends Construct {
             signInAliases: { email: true },
             autoVerify: { email: true },
             email: cognito.UserPoolEmail.withCognito(),
+            userVerification: {
+                emailSubject: 'Reimposta la tua password — Portale Timbratura',
+                emailBody: `
+                    <p>Ciao,</p>
+                    <p>abbiamo ricevuto una richiesta di reimpostazione della password per il tuo account sul portale <strong>Timbratura</strong>.</p>
+                    <p>Inserisci il seguente codice di verifica nell'apposito campo:</p>
+                    <p style="font-size:28px; font-weight:bold; letter-spacing:6px;">{####}</p>
+                    <p>Il codice è valido per <strong>10 minuti</strong>.</p>
+                    <p>Se non hai richiesto la reimpostazione della password, ignora questa email — il tuo account è al sicuro.</p>
+                    <p>Grazie,<br>Il team di Timbratura</p>
+                `,
+                emailStyle: cognito.VerificationEmailStyle.CODE,
+            },
             userInvitation: {
                 emailSubject: 'Benvenuto! Completa la registrazione al portale Timbratura',
                 emailBody: `

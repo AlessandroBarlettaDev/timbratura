@@ -9,9 +9,15 @@
   <aside class="sidebar" [class.sidebar-open]="sidebarOpen">
     <span class="brand" style="padding: 0 12px; margin-bottom: 16px; display:block;">TIMBRATURA</span>
     <span class="sidebar-title">Menu</span>
-    <button class="nav-item" [class.active]="activeSection === 'dashboard'" (click)="setSection('dashboard')">Dashboard</button>
-    <button class="nav-item" [class.active]="activeSection === 'utenti'"    (click)="setSection('utenti')">Utenti</button>
-    <button class="nav-item" [class.active]="activeSection === 'stazioni'"  (click)="setSection('stazioni')">Stazioni</button>
+    <button class="nav-item" [class.active]="activeSection === 'dashboard'"  (click)="setSection('dashboard')">Dashboard</button>
+    <button class="nav-item" [class.active]="activeSection === 'utenti'"     (click)="setSection('utenti')">Utenti</button>
+    <button class="nav-item" [class.active]="activeSection === 'stazioni'"   (click)="setSection('stazioni')">Stazioni</button>
+    <button class="nav-item" [class.active]="activeSection === 'richieste'"  (click)="setSection('richieste')">
+      Richieste
+      @if (richiestePendentiCount > 0) {
+        <span style="display:inline-block; background:#ef4444; color:#fff; border-radius:999px; font-size:11px; font-weight:700; padding:1px 7px; margin-left:8px;">{{ richiestePendentiCount }}</span>
+      }
+    </button>
 
     <div class="sidebar-footer">
       <button class="sidebar-user-btn" (click)="apriProfilo()">
@@ -156,11 +162,63 @@
           </span>
           <span class="detail-label">Presente ora</span>
           <span>
-            <span class="badge badge-inactive">—</span>
+            @if (presentiOggiSet.has(selectedUser.id)) {
+              <span class="badge badge-active">Sì</span>
+            } @else {
+              <span class="badge badge-inactive">No</span>
+            }
           </span>
         </div>
 
         <ng-container *ngTemplateOutlet="tabellaTimbrature"></ng-container>
+      }
+    }
+
+    <!-- ── RICHIESTE ── -->
+    @if (activeSection === 'richieste') {
+      <div class="panel-header">
+        <h2 class="panel-title">Richieste pendenti</h2>
+        <button class="btn-detail-action" (click)="loadRichieste()">↻ Aggiorna</button>
+      </div>
+
+      @if (richiesteLoading) {
+        <div class="spinner-container"><div class="spinner"></div></div>
+      } @else if (richieste.length > 0) {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Dipendente</th>
+              <th>Data</th>
+              <th>Tipo</th>
+              <th>Ora</th>
+              <th>Nota</th>
+              <th>Inviata il</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of richieste; track r.requestId) {
+              <tr>
+                <td>{{ r.nomeUtente }}</td>
+                <td>{{ r.data }}</td>
+                <td>
+                  <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
+                    {{ r.tipo | titlecase }}
+                  </span>
+                </td>
+                <td>{{ r.ora }}</td>
+                <td style="max-width:220px; white-space:normal; word-break:break-word;">{{ r.nota }}</td>
+                <td>{{ formatTimestamp(r.createdAt).data }} {{ formatTimestamp(r.createdAt).ora }}</td>
+                <td style="text-align:right; white-space:nowrap;">
+                  <button class="btn-detail-action" style="margin-right:6px;" (click)="approvaRichiesta(r)">Approva</button>
+                  <button class="btn-detail-action btn-detail-danger" (click)="apriRifiutaModal(r)">Rifiuta</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty-state">Nessuna richiesta pendente.</p>
       }
     }
 
@@ -231,7 +289,7 @@
 <!-- ── TEMPLATE CONDIVISO: TABELLA TIMBRATURE ── -->
 <ng-template #tabellaTimbrature>
   <div style="margin-top: 36px;">
-  @if (timbrature.length > 0) {
+  @if (turni.length > 0) {
     <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
       <div class="info-stat-card">
         <span class="info-stat-label">Ore lavorate</span>
@@ -276,25 +334,25 @@
     </div>
     @if (timbratureLoading) {
       <div class="spinner-container" style="margin-top: 20px;"><div class="spinner"></div></div>
-    } @else if (timbrature.length > 0) {
+    } @else if (turni.length > 0) {
       <table class="data-table">
         <thead>
           <tr>
-            <th>Tipo</th>
             <th>Data</th>
-            <th>Ora</th>
+            <th>Entrata</th>
+            <th>Uscita</th>
+            <th>Durata</th>
+            <th>Sede</th>
           </tr>
         </thead>
         <tbody>
-          @for (t of timbrature; track t.timestamp) {
+          @for (t of turni; track t.data + t.entrata) {
             <tr>
-              <td>
-                <span class="badge" [class.badge-active]="t.tipo === 'entrata'" [class.badge-inactive]="t.tipo === 'uscita'">
-                  {{ t.tipo | titlecase }}
-                </span>
-              </td>
-              <td>{{ formatTimestamp(t.timestamp).data }}</td>
-              <td>{{ formatTimestamp(t.timestamp).ora }}</td>
+              <td>{{ t.data }}</td>
+              <td>{{ t.entrata }}</td>
+              <td>{{ t.uscita ?? '—' }}</td>
+              <td>{{ t.durata ?? '—' }}</td>
+              <td>{{ t.sede }}</td>
             </tr>
           }
         </tbody>
@@ -306,6 +364,102 @@
 </ng-template>
 
 <!-- ── MODALI ── -->
+
+<!-- Approva richiesta — mostra le timbrature del giorno prima di confermare -->
+@if (showApprovaModal) {
+  <div class="modal-overlay" (click)="showApprovaModal = false">
+    <div class="modal-card" style="max-width:520px;" (click)="$event.stopPropagation()">
+      <h2>Conferma approvazione</h2>
+      <p style="color:#666; margin-bottom:4px;">
+        Stai per aggiungere una timbratura manuale per <strong>{{ approvaModalRichiesta?.nomeUtente }}</strong>:
+      </p>
+      <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+        <span class="badge" [class.badge-active]="approvaModalRichiesta?.tipo === 'entrata'" [class.badge-inactive]="approvaModalRichiesta?.tipo === 'uscita'">
+          {{ approvaModalRichiesta?.tipo | titlecase }}
+        </span>
+        <span style="font-weight:600;">{{ approvaModalRichiesta?.data }}</span>
+        <span>ore {{ approvaModalRichiesta?.ora }}</span>
+      </div>
+
+      <p style="font-size:13px; font-weight:600; color:#444; margin-bottom:8px;">
+        Timbrature già presenti per questo giorno:
+      </p>
+
+      @if (approvaModalLoading) {
+        <div class="spinner-container" style="margin:12px 0;"><div class="spinner"></div></div>
+      } @else if (approvaModalTimbrature.length > 0) {
+        <table class="data-table" style="margin-bottom:20px;">
+          <thead><tr><th>Tipo</th><th>Ora</th><th>Sede</th></tr></thead>
+          <tbody>
+            @for (t of approvaModalTimbrature; track t.timestamp) {
+              <tr>
+                <td>
+                  <span class="badge" [class.badge-active]="t.tipo === 'entrata'" [class.badge-inactive]="t.tipo === 'uscita'">
+                    {{ t.tipo | titlecase }}
+                  </span>
+                </td>
+                <td>{{ formatTimestamp(t.timestamp).ora }}</td>
+                <td>{{ t.stazioneDescrizione || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p style="color:#aaa; font-size:13px; margin-bottom:20px;">Nessuna timbratura presente per questo giorno.</p>
+      }
+
+      <p style="font-size:12px; color:#999; margin-bottom:20px; font-style:italic;">{{ approvaModalRichiesta?.nota }}</p>
+
+      @if (approvaModalAltreRichieste.length > 0) {
+        <div style="background:#fef9c3; border:1px solid #fde047; border-radius:10px; padding:12px 16px; margin-bottom:20px;">
+          <p style="font-size:13px; font-weight:600; color:#854d0e; margin-bottom:8px;">
+            ⚠ Attenzione: ci sono altre richieste pendenti di {{ approvaModalRichiesta?.nomeUtente }} per lo stesso giorno.
+            Approva prima quella con l'ora più bassa.
+          </p>
+          <table class="data-table" style="margin:0;">
+            <thead><tr><th>Tipo</th><th>Ora</th></tr></thead>
+            <tbody>
+              @for (a of approvaModalAltreRichieste; track a.requestId) {
+                <tr>
+                  <td>
+                    <span class="badge" [class.badge-active]="a.tipo === 'entrata'" [class.badge-inactive]="a.tipo === 'uscita'">
+                      {{ a.tipo | titlecase }}
+                    </span>
+                  </td>
+                  <td>{{ a.ora }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      @if (approvaModalError) { <p class="modal-error">{{ approvaModalError }}</p> }
+      <button class="btn-login" (click)="confermaApprova()">Conferma approvazione</button>
+      <button class="btn-forgot" (click)="showApprovaModal = false">Annulla</button>
+    </div>
+  </div>
+}
+
+<!-- Rifiuta richiesta -->
+@if (showRifiutaModal) {
+  <div class="modal-overlay" (click)="showRifiutaModal = false">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <h2>Rifiuta richiesta</h2>
+      <p style="color:#666; margin-bottom:16px;">
+        Stai rifiutando la richiesta di <strong>{{ richiestaSelezionata?.nomeUtente }}</strong>:
+        {{ richiestaSelezionata?.tipo | titlecase }} del {{ richiestaSelezionata?.data }} alle {{ richiestaSelezionata?.ora }}.
+      </p>
+      <div class="form-group">
+        <label>Motivo del rifiuto *</label>
+        <textarea [(ngModel)]="motivoRifiuto" rows="3" placeholder="Spiega il motivo del rifiuto..." style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+      </div>
+      @if (rifiutaModalError) { <p class="modal-error">{{ rifiutaModalError }}</p> }
+      <button class="btn-logout" (click)="confermaRifiuto()">Conferma rifiuto</button>
+      <button class="btn-forgot" (click)="showRifiutaModal = false">Annulla</button>
+    </div>
+  </div>
+}
 
 <!-- Modifica utente -->
 @if (showEditModal) {

@@ -37,6 +37,13 @@ export class ApiService {
     return this.http.get(`${this.apiUrl}/timbrature${params}`);
   }
 
+  // --- Requests (timbrature manuali) ---
+  creaRequest(data: any): Observable<any>                          { return this.http.post(`${this.apiUrl}/requests`, data); }
+  getMieRequests(): Observable<any>                                { return this.http.get(`${this.apiUrl}/requests/me`); }
+  getRequestsPendenti(): Observable<any>                           { return this.http.get(`${this.apiUrl}/requests`); }
+  approvaRequest(id: string): Observable<any>                     { return this.http.post(`${this.apiUrl}/requests/${id}/approve`, {}); }
+  rifiutaRequest(id: string, motivo: string): Observable<any>     { return this.http.post(`${this.apiUrl}/requests/${id}/reject`, { motivo }); }
+
   // --- Stazioni (JWT custom iniettato dall'interceptor per le rotte /stazioni/me/*) ---
   getStazioneQr(): Observable<{ qrUrl: string; expiresAt: number; presenti: number; lat: number | null; lng: number | null; ultimaTimbratura: any | null }> { return this.http.get<any>(`${this.apiUrl}/stazioni/me/qr`); }
   updateStazionePosition(lat: number, lng: number): Observable<any> { return this.http.post(`${this.apiUrl}/stazioni/me/position`, { lat, lng }); }
