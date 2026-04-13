@@ -8,19 +8,25 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import * as path from 'path';
 
+export interface BackendStackProps extends cdk.StackProps {
+  deployEnv?: string;
+}
+
 export class BackendStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: BackendStackProps) {
     super(scope, id, props);
+
+    const suffix = props?.deployEnv ? `-${props.deployEnv}` : '';
 
     // Hosting S3 + CloudFront — creato prima di Cognito per passare l'appUrl al template email
     const hosting = new HostingConfig(this, 'Hosting');
     const appUrl  = hosting.appUrl;
 
     // Cognito — riceve appUrl per costruire il link nel template email di benvenuto
-    const cognito = new CognitoConfig(this, 'CognitoConfig', appUrl);
+    const cognito = new CognitoConfig(this, 'CognitoConfig', appUrl, suffix);
 
     // DynamoDB
-    const dynamo = new DynamoDbConfig(this, 'DynamoDbConfig');
+    const dynamo = new DynamoDbConfig(this, 'DynamoDbConfig', suffix);
 
     // Lambda per gestione utenti
     const usersHandler = new NodejsFunction(this, 'UsersHandler', {

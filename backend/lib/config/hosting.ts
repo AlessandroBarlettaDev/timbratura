@@ -54,5 +54,15 @@ export class HostingConfig extends Construct {
       value:       this.appUrl,
       description: 'URL pubblico del frontend (usa questo come APP_URL e RP_ORIGIN)',
     });
+
+    new cdk.CfnOutput(this, 'FrontendBucketName', {
+      value:       bucket.bucketName,
+      description: 'Nome del bucket S3 che ospita il frontend',
+    });
+
+    new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
+      value:       distribution.distributionId,
+      description: 'ID della distribuzione CloudFront',
+    });
   }
 }

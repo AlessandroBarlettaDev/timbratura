@@ -9,14 +9,14 @@ export class CognitoConfig extends Construct {
     public readonly managerGroup: cognito.CfnUserPoolGroup;
     public readonly employeeGroup: cognito.CfnUserPoolGroup;
 
-    constructor(scope: Construct, id: string, appUrl?: string) {
+    constructor(scope: Construct, id: string, appUrl?: string, suffix: string = '') {
         super(scope, id);
 
         const loginUrl = appUrl ? `${appUrl}/login` : '/login';
 
         // Crea User Pool con attributi personalizzati
         this.userPool = new cognito.UserPool(this, 'UserPool', {
-            userPoolName: 'TimbraturaUserPool',
+            userPoolName: `TimbraturaUserPool${suffix}`,
             selfSignUpEnabled: false,
             signInAliases: { email: true },
             autoVerify: { email: true },

@@ -1,106 +1,176 @@
 #!/bin/bash
-# Script di deploy completo o solo frontend.
-#
 # Uso:
-#   ./deploy.sh          → deploy completo (infrastruttura + frontend)
-#   ./deploy.sh frontend → solo frontend (build Angular + sync S3 + invalida CloudFront, ~30s)
+#   ./deploy.sh                 → deploy completo produzione
+#   ./deploy.sh frontend        → solo frontend produzione (~30s)
+#   ./deploy.sh --dev           → deploy completo dev
+#   ./deploy.sh --dev frontend  → solo frontend dev (~30s)
 
-set -e
+set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"                                         # Directory dello script, usata come base per i path relativi
-BACKEND_DIR="$SCRIPT_DIR/backend"                                                   # Directory del backend (CDK + Lambda), usata per il deploy CDK e per leggere gli outputs
-FRONTEND_DIR="$SCRIPT_DIR/frontend"                                                 # Directory del frontend (Angular), usata per build e per aggiornare environment.ts                 
-ENV_FILE="$FRONTEND_DIR/src/app/environments/environment.ts"                        # File di environment.ts del frontend, usato per aggiornare dinamicamente le variabili di ambiente (API URL, Cognito User Pool, ecc.) dopo il deploy CDK
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BACKEND_DIR="$SCRIPT_DIR/backend"
+FRONTEND_DIR="$SCRIPT_DIR/frontend"
+ENV_FILE="$FRONTEND_DIR/src/app/environments/environment.ts"
+CDK_OUTPUTS="/tmp/cdk-outputs.json"
 
-# Valori fissi — non cambiano a meno di non ricreare lo stack
-S3_BUCKET="backendstack-hostingfrontendbucket74d527b5-0akstckllozf"                 # Bucket S3 usato per hostare il frontend, creato dallo stack CDK (si può hardcodare perché è sempre lo stesso, a meno di ricreare lo stack)
-CLOUDFRONT_ID="$(aws cloudfront list-distributions 2>/dev/null | python3 -c "       # Trova l'ID della distribuzione CloudFront che ha "backendstack" nel DomainName (ovvero quella creata dallo stack CDK per servire il frontend da S3)
-import sys, json                                                                    # Reindirizza l'output JSON di `aws cloudfront list-distributions` a questo script Python, che lo analizza per trovare la distribuzione corretta e stampare il suo ID
-d = json.load(sys.stdin)                                                            # Analizza la lista delle distribuzioni CloudFront
-for dist in d.get('DistributionList', {}).get('Items', []):                         # Itera sulle distribuzioni per trovare quella che ha "backendstack" nel DomainName di una delle sue origini (origins)
-    for origin in dist.get('Origins', {}).get('Items', []):                         # Itera sulle origini di ogni distribuzione per controllare il DomainName
-        if 'backendstack' in origin.get('DomainName', '').lower():                  # Se trovi una distribuzione con un'origine che contiene "backendstack" nel DomainName, stampa il suo ID e interrompi
-            print(dist['Id'])                                                       # Stampa l'ID della distribuzione CloudFront trovata
-            break                                                                   # Se trovi la distribuzione, esci dal loop esterno
-" 2>/dev/null || echo '')"                                                          # Se il comando `aws cloudfront list-distributions` fallisce (ad esempio se non ci sono distribuzioni o se AWS CLI non è configurato), stampa una stringa vuota come fallback
-APP_URL="https://d2csjqqicya19l.cloudfront.net"                                     # URL dell'applicazione, che è il dominio della distribuzione CloudFront (si può hardcodare perché è sempre lo stesso, a meno di ricreare lo stack)
+# Fallback hardcodati per prod (usati finché non viene fatto un deploy completo con i nuovi output CDK)
+PROD_BUCKET="backendstack-hostingfrontendbucket74d527b5-0akstckllozf"
+PROD_URL="https://d2csjqqicya19l.cloudfront.net"
 
-# --- Solo frontend (veloce) ---
-if [ "${1}" = "frontend" ]; then                                                    # Se il primo argomento è "frontend", esegui solo il deploy del frontend (build Angular + sync S3 + invalida CloudFront)
+# ---------- Argomenti ----------
+DEV_MODE=false
+FRONTEND_ONLY=false
+for arg in "$@"; do
+  case "$arg" in
+    --dev)    DEV_MODE=true ;;
+    frontend) FRONTEND_ONLY=true ;;
+  esac
+done
+
+if $DEV_MODE; then
+  export DEPLOY_ENV="dev"
+  STACK_NAME="BackendStack-dev"
+else
+  export DEPLOY_ENV=""
+  STACK_NAME="BackendStack"
+fi
+
+# ---------- Funzioni ----------
+
+# Estrae gli output da un file JSON prodotto da `cdk deploy --outputs-file`
+_parse_cdk_outputs() {
+  python3 - "$CDK_OUTPUTS" <<'EOF'
+import json, sys
+with open(sys.argv[1]) as f:
+    stack = list(json.load(f).values())[0]
+def get(k): return next((v for key, v in stack.items() if k in key), '')
+print(get('FrontendBucketName'))
+print(get('CloudFrontDistributionId'))
+print(get('AppUrl'))
+print(get('ApiTimbraturaApiEndpoint').rstrip('/'))
+print(get('UserPoolId'))
+print(get('ClientId'))
+EOF
+}
+
+# Legge gli output dallo stack CloudFormation già deployato
+_read_cf_outputs() {
+  python3 - "$STACK_NAME" <<'EOF'
+import subprocess, json, sys
+r = subprocess.run(
+  ['aws', 'cloudformation', 'describe-stacks', '--stack-name', sys.argv[1]],
+  capture_output=True, text=True
+)
+if r.returncode != 0:
+  sys.exit(1)
+outputs = {o['OutputKey']: o['OutputValue']
+           for o in json.loads(r.stdout)['Stacks'][0].get('Outputs', [])}
+def get(k): return next((v for key, v in outputs.items() if k in key), '')
+print(get('FrontendBucketName'))
+print(get('CloudFrontDistributionId'))
+print(get('AppUrl'))
+print(get('ApiTimbraturaApiEndpoint').rstrip('/'))
+print(get('UserPoolId'))
+print(get('ClientId'))
+EOF
+}
+
+# Scrive environment.ts — fallisce se i valori critici sono vuoti
+_write_env() {
+  local user_pool_id="$1" client_id="$2" api_url="$3"
+  if [ -z "$user_pool_id" ] || [ -z "$client_id" ] || [ -z "$api_url" ]; then
+    echo "❌ Valori mancanti: UserPoolId='$user_pool_id' ClientId='$client_id' ApiUrl='$api_url'"
+    exit 1
+  fi
+  cat > "$ENV_FILE" <<ENVEOF
+export const environment = {
+  region:           'eu-west-1',
+  UserPoolId:       '${user_pool_id}',
+  UserPoolClientId: '${client_id}',
+  ApiUrl:           '${api_url}',
+};
+ENVEOF
+}
+
+# Build Angular + sync S3 + invalida CloudFront
+_deploy_frontend() {
+  local bucket="$1" cf_id="$2" app_url="$3"
   echo "▶ Build Angular..."
   cd "$FRONTEND_DIR" && ng build
   echo "▶ Sync S3..."
-  aws s3 sync dist/frontend/browser "s3://$S3_BUCKET" --delete
-  if [ -n "$CLOUDFRONT_ID" ]; then
-    echo "▶ Invalida cache CloudFront ($CLOUDFRONT_ID)..."
-    aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_ID" --paths "/*" > /dev/null
+  aws s3 sync dist/frontend/browser "s3://$bucket" --delete
+  if [ -n "$cf_id" ]; then
+    echo "▶ Invalida cache CloudFront ($cf_id)..."
+    aws cloudfront create-invalidation --distribution-id "$cf_id" --paths "/*" > /dev/null
   fi
-  echo "✅ Frontend aggiornato su $APP_URL"
+  echo "✅ Frontend aggiornato su $app_url"
+}
+
+# ---------- Solo frontend ----------
+if $FRONTEND_ONLY; then
+
+  echo "▶ Lettura outputs stack $STACK_NAME..."
+
+  if ! VALS=$(_read_cf_outputs 2>/dev/null); then
+    if $DEV_MODE; then
+      echo "❌ Stack $STACK_NAME non trovato. Esegui prima './deploy.sh --dev'."
+    else
+      echo "❌ Stack $STACK_NAME non trovato. Esegui prima './deploy.sh'."
+    fi
+    exit 1
+  fi
+
+  S3_BUCKET=$(echo    "$VALS" | sed -n '1p')
+  CF_ID=$(echo        "$VALS" | sed -n '2p')
+  APP_URL=$(echo      "$VALS" | sed -n '3p')
+  API_URL=$(echo      "$VALS" | sed -n '4p')
+  USER_POOL_ID=$(echo "$VALS" | sed -n '5p')
+  CLIENT_ID=$(echo    "$VALS" | sed -n '6p')
+
+  # Fallback prod: i nuovi output (Bucket, CF ID) non esistono finché non si fa un deploy completo
+  if ! $DEV_MODE; then
+    S3_BUCKET="${S3_BUCKET:-$PROD_BUCKET}"
+    APP_URL="${APP_URL:-$PROD_URL}"
+    if [ -z "$CF_ID" ]; then
+      CF_ID="$(aws cloudfront list-distributions 2>/dev/null | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for dist in d.get('DistributionList', {}).get('Items', []):
+    for o in dist.get('Origins', {}).get('Items', []):
+        if 'backendstack' in o.get('DomainName', '').lower():
+            print(dist['Id']); sys.exit(0)
+" 2>/dev/null || true)"
+    fi
+  fi
+
+  _write_env "$USER_POOL_ID" "$CLIENT_ID" "$API_URL"
+  _deploy_frontend "$S3_BUCKET" "$CF_ID" "$APP_URL"
   exit 0
 fi
 
-# --- Deploy completo ---
+# ---------- Deploy completo ----------
 
-echo "▶ Step 1/4 — Deploy infrastruttura AWS..."
+echo "▶ Step 1/4 — Deploy infrastruttura AWS ($STACK_NAME)..."
 cd "$BACKEND_DIR"
-npx cdk deploy --require-approval never --outputs-file /tmp/cdk-outputs.json 2>&1 | tail -5
+npx cdk deploy "$STACK_NAME" --require-approval never --outputs-file "$CDK_OUTPUTS" 2>&1
 
-APP_URL=$(python3 -c "
-import json
-with open('/tmp/cdk-outputs.json') as f:
-    outputs = json.load(f)
-stack = list(outputs.values())[0]
-for key, val in stack.items():
-    if 'AppUrl' in key:
-        print(val); break
-")
-
-API_URL=$(python3 -c "
-import json
-with open('/tmp/cdk-outputs.json') as f:
-    outputs = json.load(f)
-stack = list(outputs.values())[0]
-for key, val in stack.items():
-    if 'ApiTimbraturaApiEndpoint' in key:
-        print(val.rstrip('/')); break
-")
-
-USER_POOL_ID=$(python3 -c "
-import json
-with open('/tmp/cdk-outputs.json') as f:
-    outputs = json.load(f)
-stack = list(outputs.values())[0]
-for key, val in stack.items():
-    if 'UserPoolId' in key:
-        print(val); break
-")
-
-CLIENT_ID=$(python3 -c "
-import json
-with open('/tmp/cdk-outputs.json') as f:
-    outputs = json.load(f)
-stack = list(outputs.values())[0]
-for key, val in stack.items():
-    if 'ClientId' in key:
-        print(val); break
-")
+VALS=$(_parse_cdk_outputs)
+S3_BUCKET=$(echo    "$VALS" | sed -n '1p')
+CF_ID=$(echo        "$VALS" | sed -n '2p')
+APP_URL=$(echo      "$VALS" | sed -n '3p')
+API_URL=$(echo      "$VALS" | sed -n '4p')
+USER_POOL_ID=$(echo "$VALS" | sed -n '5p')
+CLIENT_ID=$(echo    "$VALS" | sed -n '6p')
 
 echo ""
 echo "▶ Step 2/4 — Aggiornamento environment.ts..."
-cat > "$ENV_FILE" <<EOF
-export const environment = {
-  region:           'eu-west-1',
-  UserPoolId:       '${USER_POOL_ID}',
-  UserPoolClientId: '${CLIENT_ID}',
-  ApiUrl:           '${API_URL}',
-};
-EOF
+_write_env "$USER_POOL_ID" "$CLIENT_ID" "$API_URL"
 
 echo "▶ Step 3/4 — Build Angular..."
 cd "$FRONTEND_DIR" && ng build
 
 echo "▶ Step 4/4 — Upload S3 + deploy CDK finale..."
-cd "$BACKEND_DIR" && npx cdk deploy --require-approval never 2>&1 | tail -5
+cd "$BACKEND_DIR" && npx cdk deploy "$STACK_NAME" --require-approval never 2>&1
 
 echo ""
 echo "✅ Deploy completato!"

@@ -15,11 +15,11 @@ export class DynamoDbConfig extends Construct {
   // Tabella che memorizza le richieste di timbratura manuale
   public readonly requestsTable: dynamodb.Table;
 
-  constructor(scope: Construct, id: string) {
+  constructor(scope: Construct, id: string, suffix: string = '') {
     super(scope, id);
 
     this.webAuthnTable = new dynamodb.Table(this, 'WebAuthnCredentials', {
-      tableName:    'WebAuthnCredentials',
+      tableName:    `WebAuthnCredentials${suffix}`,
       partitionKey: { name: 'credentialId', type: dynamodb.AttributeType.STRING },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
@@ -30,7 +30,7 @@ export class DynamoDbConfig extends Construct {
     new cdk.CfnOutput(this, 'WebAuthnTableName', { value: this.webAuthnTable.tableName });
 
     this.stazioniTable = new dynamodb.Table(this, 'Stazioni', {
-      tableName: 'Stazioni',
+      tableName: `Stazioni${suffix}`,
 
       // stationId è la chiave primaria — UUID generato alla creazione
       partitionKey: { name: 'stationId', type: dynamodb.AttributeType.STRING },
@@ -49,7 +49,7 @@ export class DynamoDbConfig extends Construct {
     });
 
     this.timbratureTable = new dynamodb.Table(this, 'Timbrature', {
-      tableName: 'Timbrature',
+      tableName: `Timbrature${suffix}`,
 
       // PK: userId — tutte le timbrature di un dipendente sono raggruppate insieme
       // SK: timestamp ISO — permette query per intervallo di date con begins_with
@@ -72,7 +72,7 @@ export class DynamoDbConfig extends Construct {
     });
 
     this.requestsTable = new dynamodb.Table(this, 'Requests', {
-      tableName:    'Requests',
+      tableName:    `Requests${suffix}`,
       partitionKey: { name: 'requestId', type: dynamodb.AttributeType.STRING },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
