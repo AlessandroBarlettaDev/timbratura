@@ -41,6 +41,35 @@ set -euo pipefail
 # Tutte le operazioni AWS usano eu-west-1 — CDK, CLI e SDK lo ereditano da questa variabile
 export AWS_DEFAULT_REGION="eu-west-1"
 
+# Profilo AWS: usa quello già impostato dall'utente; se assente prova timbrature-app
+if [ -z "${AWS_PROFILE:-}" ]; then
+  if aws configure list-profiles 2>/dev/null | grep -qx "timbrature-app"; then
+    export AWS_PROFILE="timbrature-app"
+  fi
+fi
+if [ -n "${AWS_PROFILE:-}" ]; then
+  export AWS_DEFAULT_PROFILE="$AWS_PROFILE"
+fi
+
+# CDK ha bisogno di account/regione risolti esplicitamente per deployare asset
+_STS_ARGS=()
+if [ -n "${AWS_PROFILE:-}" ]; then
+  _STS_ARGS+=(--profile "$AWS_PROFILE")
+fi
+if ! AWS_ACCOUNT_ID=$(aws sts get-caller-identity "${_STS_ARGS[@]}" --query Account --output text 2>/dev/null); then
+  echo "❌ Credenziali AWS non valide o mancanti per CDK deploy."
+  if [ -n "${AWS_PROFILE:-}" ]; then
+    echo "   Profilo in uso: $AWS_PROFILE"
+    echo "   Verifica con: aws sts get-caller-identity --profile $AWS_PROFILE"
+  else
+    echo "   Imposta un profilo prima del deploy, ad esempio:"
+    echo "   export AWS_PROFILE=timbrature-app"
+  fi
+  exit 1
+fi
+export CDK_DEFAULT_ACCOUNT="$AWS_ACCOUNT_ID"
+export CDK_DEFAULT_REGION="$AWS_DEFAULT_REGION"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$SCRIPT_DIR/backend"
 FRONTEND_DIR="$SCRIPT_DIR/frontend"
