@@ -123,11 +123,22 @@ async function approvaRequest(requestId: string, claims: any) {
   if (item.tipo !== tipoAtteso)
     return json(409, `Tipo non coerente: per questo dipendente la prossima timbratura del ${item.data} deve essere una ${tipoAtteso}`);
 
+  // Recupera nome e cognome per salvarlo nella timbratura (evita join successivi)
+  let nome = '', cognome = '';
+  try {
+    const user = await cognito.send(new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: item.userId }));
+    const attrs = Object.fromEntries((user.UserAttributes ?? []).map((a: any) => [a.Name, a.Value]));
+    nome    = attrs['given_name']  ?? '';
+    cognome = attrs['family_name'] ?? '';
+  } catch {}
+
   const timestamp = oraLocaleToIsoUtc(item.data, item.ora);
   await dynamo.send(new PutItemCommand({
     TableName: TIMBRATURE_TABLE,
     Item: marshall({
       userId:              item.userId,
+      nome,
+      cognome,
       timestamp,
       data:                item.data,
       tipo:                item.tipo,

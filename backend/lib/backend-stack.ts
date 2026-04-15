@@ -66,7 +66,8 @@ export class BackendStack extends cdk.Stack {
     });
     dynamo.webAuthnTable.grantReadWriteData(biometricHandler);
 
-    const jwtSecret = process.env.JWT_SECRET ?? 'timbratura-stazioni-secret-changeme';
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) throw new Error('JWT_SECRET env var è obbligatoria per il deploy');
 
     // Lambda per la gestione delle stazioni di timbratura
     const stazioniHandler = new NodejsFunction(this, 'StazioniHandler', {

@@ -312,9 +312,6 @@ async function getTimbratureUtente(userId: string, mese?: string) {
 // Valida la distanza GPS tra dipendente e stazione.
 // Ritorna { errore, descrizione }: errore è null se la validazione passa, descrizione è il nome leggibile della stazione.
 async function validaPosizioneGps(stationId: string, lat?: number, lng?: number): Promise<{ errore: string | null; descrizione: string }> {
-  if (lat == null || lng == null)
-    return { errore: 'Posizione GPS non disponibile. Abilita la geolocalizzazione e riprova.', descrizione: '' };
-
   const result = await dynamo.send(new QueryCommand({
     TableName:                 STAZIONI_TABLE,
     KeyConditionExpression:    'stationId = :sid',
@@ -324,8 +321,13 @@ async function validaPosizioneGps(stationId: string, lat?: number, lng?: number)
   if (!result.Items?.length) return { errore: 'Stazione non trovata.', descrizione: '' };
   const stazione = unmarshall(result.Items[0]);
 
+  // Se la stazione non ha coordinate GPS, la validazione è disabilitata
   if (stazione.lat == null || stazione.lng == null)
-    return { errore: 'La stazione non ha una posizione GPS configurata. Contatta il manager.', descrizione: stazione.descrizione ?? '' };
+    return { errore: null, descrizione: stazione.descrizione ?? '' };
+
+  // La stazione ha coordinate: il GPS del dipendente è obbligatorio
+  if (lat == null || lng == null)
+    return { errore: 'Posizione GPS non disponibile. Abilita la geolocalizzazione e riprova.', descrizione: stazione.descrizione ?? '' };
 
   const distanza = haversineMeters(lat, lng, stazione.lat, stazione.lng);
   if (distanza > MAX_DISTANCE_METERS)
