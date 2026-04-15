@@ -78,7 +78,7 @@ Sistema di gestione presenze con autenticazione biometrica (WebAuthn/FIDO2), svi
 │              ┌────────────────────────────────────────┐           │
 │              │               DynamoDB                 │           │
 │              │  WebAuthn │ Timbrature │ Stazioni       │           │
-│              │  Requests │ Contracts                  │           │
+│              │  Requests │ Contracts  │ AuditLog       │           │
 │              └────────────────────────────────────────┘           │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -89,7 +89,7 @@ Sistema di gestione presenze con autenticazione biometrica (WebAuthn/FIDO2), svi
 | **Cognito** | Gestione identità — registrazione, login, token JWT, WebAuthn nativo |
 | **API Gateway** | Unico punto di ingresso REST — autorizzazione Cognito o JWT custom |
 | **Lambda (×6)** | Logica applicativa serverless — users, biometric, timbrature, stazioni, requests, contracts |
-| **DynamoDB (×5)** | Persistenza — credenziali biometriche, timbrature, stazioni, richieste manuali, contratti |
+| **DynamoDB (×6)** | Persistenza — credenziali biometriche, timbrature, stazioni, richieste manuali, contratti, audit log |
 
 ---
 
@@ -109,7 +109,8 @@ timbratura/
 │   │       ├── stations-handler.ts    # Stazioni + QR
 │   │       ├── users-handler.ts       # Gestione utenti Cognito
 │   │       ├── requests-handler.ts    # Richieste di timbratura manuale
-│   │       └── contracts-handler.ts   # Gestione contratti dipendenti
+│   │       ├── contracts-handler.ts   # Gestione contratti dipendenti
+│   │       └── audit.ts               # Utility scrittura audit log (best-effort)
 │   └── package.json
 │
 ├── frontend/                   # Applicazione Angular 21
@@ -258,6 +259,7 @@ Gestisce il caso in cui un dipendente dimentica di timbrare entrata o uscita.
 | **Pending-entry TTL** | Timbratura | La conferma deve avvenire entro 5 minuti, altrimenti il token scade |
 | **CORS** | API Gateway | Ristretto al dominio CloudFront |
 | **Gruppi Cognito** | Autorizzazione | `manager` e `employee` — verificati nei claim JWT ad ogni richiesta |
+| **Audit trail** | Tutte le operazioni sensibili | Ogni azione di creazione, modifica o cancellazione viene registrata in `AuditLog` con attore, ruolo, entità e timestamp — scrittura best-effort (non blocca l'operazione principale) |
 
 ---
 
@@ -351,6 +353,24 @@ PK: `contractId` — GSI: `userId-index` su `userId` (SK: `dataInizio`, ordine d
 | `note` | String\|null | Note libere |
 | `createdAt` | String | ISO 8601 |
 | `updatedAt` | String | ISO 8601 |
+
+### AuditLog
+
+PK: `auditId` (`ISO#hex`) — GSI: `actor-index` su `actor` + `auditId` — GSI: `entity-index` su `entityType` + `auditId` — TTL: 5 anni
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `auditId` | PK | `<ISO 8601>#<4 byte hex>` — ordinamento cronologico garantito |
+| `timestamp` | String | ISO 8601 — data/ora dell'evento |
+| `actor` | GSI | Username Cognito di chi ha eseguito l'azione |
+| `actorRole` | String | `manager` / `employee` / `system` |
+| `action` | String | `USER_CREATE` / `USER_UPDATE` / `USER_DELETE` / `REQUEST_APPROVE` / `REQUEST_REJECT` / `CONTRACT_CREATE` / `CONTRACT_UPDATE` / `CONTRACT_DELETE` / `STATION_CREATE` / `STATION_DELETE` / `BIOMETRIC_REGISTER` / `PASSWORD_CHANGE` |
+| `entityType` | GSI | `user` / `request` / `contract` / `station` |
+| `entityId` | String | ID dell'entità coinvolta |
+| `details` | String\|null | JSON serializzato — dettagli aggiuntivi sull'azione |
+| `expiresAt` | Number | TTL Unix — 5 anni dalla scrittura |
+
+Le scritture sono **best-effort**: un errore nel log non blocca l'operazione principale.
 
 ---
 
@@ -471,6 +491,11 @@ Le timbrature non vengono mostrate come eventi singoli ma abbinate in turni (ent
 **Conversione ora locale nelle richieste manuali**
 L'ora inserita dal dipendente nella richiesta è locale italiana (Europe/Rome). Al momento dell'approvazione il backend la converte in UTC usando l'offset reale del fuso (gestisce automaticamente ora solare/legale) prima di salvare il timestamp in DynamoDB, garantendo coerenza con le timbrature normali.
 
+**Audit trail**
+Ogni operazione sensibile scrive una voce nella tabella `AuditLog`. Le operazioni tracciate sono: creazione/modifica/cancellazione di utenti, contratti e stazioni; approvazione e rifiuto di richieste manuali. La scrittura è **best-effort**: se il log fallisce (es. timeout DynamoDB), l'operazione principale va comunque a buon fine e l'errore viene stampato in CloudWatch senza propagarsi al client.
+
+La funzione `writeAudit()` in `audit.ts` è condivisa tra tutti i Lambda. Ogni voce include: chi ha agito (`actor` + `actorRole`), l'azione (`action`), l'entità coinvolta (`entityType` + `entityId`), il timestamp e dettagli opzionali in JSON. Il PK è `<ISO 8601>#<4 byte hex>` — la parte ISO garantisce ordine cronologico naturale; il suffisso hex evita collisioni in caso di eventi concorrenti. Le voci scadono automaticamente dopo 5 anni tramite TTL DynamoDB.
+
 **GPS obbligatorio**
 Se la stazione ha coordinate GPS configurate, il dipendente deve avere il GPS attivo e trovarsi entro 200 metri. Se la stazione non ha coordinate (non ancora configurate), la validazione è disabilitata. Le coordinate della stazione vengono aggiornate automaticamente dal dispositivo stazione ad ogni rinnovo QR.
 
@@ -529,13 +554,11 @@ Le richieste scompaiono dalla lista pendenti una volta gestite. Aggiungere una v
 - Scheduling automatico degli export con invio email mensile
 - L'export Excel attuale include anagrafica, dati contrattuali, analisi del periodo (ore attese/lavorate, straordinari, stima stipendio) e tabella turni con ore decimali; i festivi non sono ancora dedotti dal conteggio giorni lavorativi attesi
 
-### Audit trail completo
-Tabella DynamoDB separata AuditLog che traccia:
-- Chi ha creato/modificato/eliminato un utente
-- Chi ha approvato/rifiutato una richiesta
-- Cambiamenti di ruolo
-- Accessi falliti (tentativi di brute force)
-- Modifiche alle stazioni
+### Audit trail — eventi aggiuntivi
+L'audit trail è implementato (tabella `AuditLog`, TTL 5 anni, scrittura best-effort). Le azioni attualmente tracciate: `USER_CREATE/UPDATE/DELETE`, `REQUEST_APPROVE/REJECT`, `CONTRACT_CREATE/UPDATE/DELETE`, `STATION_CREATE/DELETE`. Possibili estensioni:
+- Accessi falliti (tentativi di brute force) — richiede gestione nel flusso Cognito
+- Cambio ruolo esplicito — attualmente incluso in `USER_UPDATE`
+- Visualizzazione log nella dashboard manager con filtri per attore o entità
 
 ### Modalità offline per la stazione
 Il flusso di timbratura richiede connettività per la verifica biometrica (chiave pubblica in DynamoDB), la firma HMAC del QR (JWT_SECRET server-side) e il salvataggio della timbratura. Quattro approcci possibili:

@@ -4,11 +4,13 @@ import { CognitoIdentityProviderClient, AdminGetUserCommand } from '@aws-sdk/cli
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import * as crypto from 'crypto';
 import { getJwtClaims, isManagerClaims } from './auth';
+import { writeAudit } from './audit';
 
 const dynamo          = new DynamoDBClient({});
 const cognito         = new CognitoIdentityProviderClient({});
 const CONTRACTS_TABLE = process.env.CONTRACTS_TABLE_NAME!;
 const USER_POOL_ID    = process.env.USER_POOL_ID!;
+const AUDIT_TABLE     = process.env.AUDIT_TABLE_NAME!;
 
 // Punto di ingresso
 export const handler = async (event: APIGatewayProxyEvent) => {
@@ -31,7 +33,7 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   }
 
   // POST /contracts — crea contratto per un dipendente
-  if (httpMethod === 'POST' && resource === '/contracts') return await createContratto(event);
+  if (httpMethod === 'POST' && resource === '/contracts') return await createContratto(event, claims);
 
   // GET /contracts?userId=xxx — lista contratti di un dipendente (manager)
   if (httpMethod === 'GET' && resource === '/contracts') {
@@ -46,16 +48,16 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   if (httpMethod === 'GET')    return await getContratto(contractId);
 
   // PUT /contracts/{id} — modifica contratto (manager)
-  if (httpMethod === 'PUT')    return await updateContratto(contractId, event);
+  if (httpMethod === 'PUT')    return await updateContratto(contractId, event, claims);
 
   // DELETE /contracts/{id} — elimina contratto (manager)
-  if (httpMethod === 'DELETE') return await deleteContratto(contractId);
+  if (httpMethod === 'DELETE') return await deleteContratto(contractId, claims);
 
   return json(404, 'Rotta non trovata');
 };
 
 // --- POST /contracts ---
-async function createContratto(event: APIGatewayProxyEvent) {
+async function createContratto(event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
 
   const raw = JSON.parse(event.body);
@@ -96,6 +98,16 @@ async function createContratto(event: APIGatewayProxyEvent) {
   };
 
   await dynamo.send(new PutItemCommand({ TableName: CONTRACTS_TABLE, Item: marshall(item) }));
+
+  await writeAudit(AUDIT_TABLE, {
+    actor:      claims['cognito:username'],
+    actorRole:  'manager',
+    action:     'CONTRACT_CREATE',
+    entityType: 'contract',
+    entityId:   contractId,
+    details:    { userId, tipoContratto, dataInizio },
+  });
+
   return json(201, { contractId });
 }
 
@@ -139,7 +151,7 @@ async function getContrattoOwnerOrManager(contractId: string, userId: string) {
 }
 
 // --- PUT /contracts/{id} ---
-async function updateContratto(contractId: string, event: APIGatewayProxyEvent) {
+async function updateContratto(contractId: string, event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
 
   // Campi aggiornabili — contractId e userId non sono modificabili
@@ -177,15 +189,32 @@ async function updateContratto(contractId: string, event: APIGatewayProxyEvent) 
     ConditionExpression:       'attribute_exists(contractId)',
   }));
 
+  await writeAudit(AUDIT_TABLE, {
+    actor:      claims['cognito:username'],
+    actorRole:  'manager',
+    action:     'CONTRACT_UPDATE',
+    entityType: 'contract',
+    entityId:   contractId,
+  });
+
   return json(200, { message: 'Contratto aggiornato' });
 }
 
 // --- DELETE /contracts/{id} ---
-async function deleteContratto(contractId: string) {
+async function deleteContratto(contractId: string, claims: any) {
   await dynamo.send(new DeleteItemCommand({
     TableName: CONTRACTS_TABLE,
     Key: marshall({ contractId }),
   }));
+
+  await writeAudit(AUDIT_TABLE, {
+    actor:      claims['cognito:username'],
+    actorRole:  'manager',
+    action:     'CONTRACT_DELETE',
+    entityType: 'contract',
+    entityId:   contractId,
+  });
+
   return json(200, { message: 'Contratto eliminato' });
 }
 

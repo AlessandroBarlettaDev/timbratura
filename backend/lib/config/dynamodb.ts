@@ -18,6 +18,9 @@ export class DynamoDbConfig extends Construct {
   // Tabella che memorizza i contratti di lavoro dei dipendenti
   public readonly contractsTable: dynamodb.Table;
 
+  // Tabella che memorizza l'audit trail delle operazioni sensibili
+  public readonly auditLogTable: dynamodb.Table;
+
   constructor(scope: Construct, id: string, suffix: string = '') {
     super(scope, id);
 
@@ -110,5 +113,29 @@ export class DynamoDbConfig extends Construct {
     });
 
     new cdk.CfnOutput(this, 'ContractsTableName', { value: this.contractsTable.tableName });
+
+    // Audit log: PK time-sortable (ISO#hex), TTL 5 anni, due GSI per query per attore o per entità
+    this.auditLogTable = new dynamodb.Table(this, 'AuditLog', {
+      tableName:    `AuditLog${suffix}`,
+      partitionKey: { name: 'auditId', type: dynamodb.AttributeType.STRING },
+      timeToLiveAttribute: 'expiresAt',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // GSI su actor — recupera tutte le azioni eseguite da un utente specifico
+    this.auditLogTable.addGlobalSecondaryIndex({
+      indexName:    'actor-index',
+      partitionKey: { name: 'actor',   type: dynamodb.AttributeType.STRING },
+      sortKey:      { name: 'auditId', type: dynamodb.AttributeType.STRING },
+    });
+
+    // GSI su entity — recupera tutta la storia di una specifica entità (es. tutti gli eventi su user X)
+    this.auditLogTable.addGlobalSecondaryIndex({
+      indexName:    'entity-index',
+      partitionKey: { name: 'entityType', type: dynamodb.AttributeType.STRING },
+      sortKey:      { name: 'auditId',    type: dynamodb.AttributeType.STRING },
+    });
+
+    new cdk.CfnOutput(this, 'AuditLogTableName', { value: this.auditLogTable.tableName });
   }
 }

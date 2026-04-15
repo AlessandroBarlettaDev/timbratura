@@ -36,6 +36,7 @@ export class BackendStack extends cdk.Stack {
       environment: {
         USER_POOL_ID:        cognito.userPool.userPoolId,
         WEBAUTHN_TABLE_NAME: dynamo.webAuthnTable.tableName,
+        AUDIT_TABLE_NAME:    dynamo.auditLogTable.tableName,
       },
     });
 
@@ -49,6 +50,7 @@ export class BackendStack extends cdk.Stack {
       'cognito-idp:AdminDeleteUser',
     );
     dynamo.webAuthnTable.grantReadWriteData(usersHandler);
+    dynamo.auditLogTable.grantWriteData(usersHandler);
 
 
     // Lambda per la registrazione biometrica (WebAuthn custom)
@@ -78,12 +80,14 @@ export class BackendStack extends cdk.Stack {
       environment: {
         STAZIONI_TABLE_NAME:   dynamo.stazioniTable.tableName,
         TIMBRATURE_TABLE_NAME: dynamo.timbratureTable.tableName,
+        AUDIT_TABLE_NAME:      dynamo.auditLogTable.tableName,
         JWT_SECRET: jwtSecret,
         APP_URL:    appUrl,
       },
     });
     dynamo.stazioniTable.grantReadWriteData(stazioniHandler);
     dynamo.timbratureTable.grantReadData(stazioniHandler);
+    dynamo.auditLogTable.grantWriteData(stazioniHandler);
 
     // Lambda per la registrazione delle timbrature (entrate/uscite)
     const timbratureHandler = new NodejsFunction(this, 'TimbratureHandler', {
@@ -114,9 +118,11 @@ export class BackendStack extends cdk.Stack {
       environment: {
         CONTRACTS_TABLE_NAME: dynamo.contractsTable.tableName,
         USER_POOL_ID:         cognito.userPool.userPoolId,
+        AUDIT_TABLE_NAME:     dynamo.auditLogTable.tableName,
       },
     });
     dynamo.contractsTable.grantReadWriteData(contractsHandler);
+    dynamo.auditLogTable.grantWriteData(contractsHandler);
     cognito.userPool.grant(contractsHandler, 'cognito-idp:AdminGetUser');
 
     // Lambda per le richieste di timbratura manuale
@@ -128,10 +134,12 @@ export class BackendStack extends cdk.Stack {
         REQUESTS_TABLE_NAME:   dynamo.requestsTable.tableName,
         TIMBRATURE_TABLE_NAME: dynamo.timbratureTable.tableName,
         USER_POOL_ID:          cognito.userPool.userPoolId,
+        AUDIT_TABLE_NAME:      dynamo.auditLogTable.tableName,
       },
     });
     dynamo.requestsTable.grantReadWriteData(requestsHandler);
     dynamo.timbratureTable.grantReadWriteData(requestsHandler);
+    dynamo.auditLogTable.grantWriteData(requestsHandler);
     cognito.userPool.grant(requestsHandler, 'cognito-idp:AdminGetUser');
 
     // API Gateway

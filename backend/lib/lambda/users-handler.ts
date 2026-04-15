@@ -11,6 +11,7 @@ import {
 import { DynamoDBClient, QueryCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { getJwtClaims, isManagerClaims } from './auth';
+import { writeAudit } from './audit';
 
 function cognitoErrorToHttp(err: any): { status: number; message: string } {
   switch (err.name) {
@@ -29,6 +30,7 @@ const cognitoClient = new CognitoIdentityProviderClient({});
 const dynamoClient  = new DynamoDBClient({});
 const USER_POOL_ID    = process.env.USER_POOL_ID!;
 const WEBAUTHN_TABLE  = process.env.WEBAUTHN_TABLE_NAME!;
+const AUDIT_TABLE     = process.env.AUDIT_TABLE_NAME!;
 
 // Punto di ingresso — API Gateway chiama questa funzione per ogni richiesta su /users
 export const handler = async (event: APIGatewayProxyEvent) => {
@@ -53,16 +55,16 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   if (!isManagerClaims(claims)) return json(403, 'Accesso negato');
 
   switch (event.httpMethod) {
-    case 'POST':   return await createEmployee(event);
+    case 'POST':   return await createEmployee(event, claims);
     case 'GET':    return userId ? await getEmployee(userId) : await listEmployees();
-    case 'PUT':    return userId ? await updateEmployee(userId, event) : json(400, 'Id mancante');
-    case 'DELETE': return userId ? await deleteEmployee(userId) : json(400, 'Id mancante');
+    case 'PUT':    return userId ? await updateEmployee(userId, event, claims) : json(400, 'Id mancante');
+    case 'DELETE': return userId ? await deleteEmployee(userId, claims) : json(400, 'Id mancante');
     default:       return json(405, 'Metodo non supportato');
   }
 };
 
 // --- POST /users — crea un nuovo dipendente ---
-async function createEmployee(event: APIGatewayProxyEvent) {
+async function createEmployee(event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
 
   const raw = JSON.parse(event.body);
@@ -106,6 +108,15 @@ async function createEmployee(event: APIGatewayProxyEvent) {
       GroupName: groupName,
     }));
 
+    await writeAudit(AUDIT_TABLE, {
+      actor:      claims?.['cognito:username'] ?? 'system',
+      actorRole:  'manager',
+      action:     'USER_CREATE',
+      entityType: 'user',
+      entityId:   email,
+      details:    { ruolo: groupName },
+    });
+
     return json(201, { message: 'Dipendente creato' });
 
   } catch (err: any) {
@@ -141,7 +152,7 @@ async function getEmployee(userId: string) {
 }
 
 // --- PUT /users/{id} — modifica attributi di un dipendente ---
-async function updateEmployee(userId: string, event: APIGatewayProxyEvent) {
+async function updateEmployee(userId: string, event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
 
   const raw = JSON.parse(event.body);
@@ -161,6 +172,14 @@ async function updateEmployee(userId: string, event: APIGatewayProxyEvent) {
         { Name: 'custom:codice_fiscale',    Value: codice_fiscale    ?? '' },
       ],
     }));
+    await writeAudit(AUDIT_TABLE, {
+      actor:      claims?.['cognito:username'] ?? 'system',
+      actorRole:  'manager',
+      action:     'USER_UPDATE',
+      entityType: 'user',
+      entityId:   userId,
+    });
+
     return json(200, { message: 'Dipendente aggiornato' });
   } catch (err: any) {
     const { status, message } = cognitoErrorToHttp(err);
@@ -205,7 +224,7 @@ async function markPasswordChanged(claims: any) {
 }
 
 // --- DELETE /users/{id} — elimina un dipendente e i suoi dispositivi biometrici ---
-async function deleteEmployee(userId: string) {
+async function deleteEmployee(userId: string, claims: any) {
   try {
     // 1. Elimina l'utente da Cognito
     await cognitoClient.send(new AdminDeleteUserCommand({
@@ -229,6 +248,14 @@ async function deleteEmployee(userId: string) {
         Key: marshall({ credentialId: c.credentialId }),
       }))
     ));
+
+    await writeAudit(AUDIT_TABLE, {
+      actor:      claims?.['cognito:username'] ?? 'system',
+      actorRole:  'manager',
+      action:     'USER_DELETE',
+      entityType: 'user',
+      entityId:   userId,
+    });
 
     return json(200, { message: 'Dipendente eliminato' });
   } catch (err: any) {

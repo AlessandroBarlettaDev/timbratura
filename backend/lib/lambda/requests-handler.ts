@@ -4,12 +4,14 @@ import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { CognitoIdentityProviderClient, AdminGetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { v4 as uuidv4 } from 'uuid';
 import { getJwtClaims, isManagerClaims } from './auth';
+import { writeAudit } from './audit';
 
 const dynamo           = new DynamoDBClient({});
 const cognito          = new CognitoIdentityProviderClient({});
 const REQUESTS_TABLE   = process.env.REQUESTS_TABLE_NAME!;
 const TIMBRATURE_TABLE = process.env.TIMBRATURE_TABLE_NAME!;
 const USER_POOL_ID     = process.env.USER_POOL_ID!;
+const AUDIT_TABLE      = process.env.AUDIT_TABLE_NAME!;
 
 // Converte una data e un'ora locale italiana (Europe/Rome) in un timestamp ISO UTC.
 // Necessario perché il dipendente inserisce l'ora locale, ma le timbrature sono salvate in UTC.
@@ -37,7 +39,7 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 
   if (httpMethod === 'GET'  && resource === '/requests')                            return await getRequestsPendenti();
   if (httpMethod === 'POST' && resource === '/requests/{id}/approve' && requestId)  return await approvaRequest(requestId, claims);
-  if (httpMethod === 'POST' && resource === '/requests/{id}/reject'  && requestId)  return await rifiutaRequest(requestId, event);
+  if (httpMethod === 'POST' && resource === '/requests/{id}/reject'  && requestId)  return await rifiutaRequest(requestId, event, claims);
 
   return json(404, 'Rotta non trovata');
 };
@@ -160,11 +162,20 @@ async function approvaRequest(requestId: string, claims: any) {
     }),
   }));
 
+  await writeAudit(AUDIT_TABLE, {
+    actor:      claims['cognito:username'],
+    actorRole:  'manager',
+    action:     'REQUEST_APPROVE',
+    entityType: 'request',
+    entityId:   requestId,
+    details:    { userId: item.userId, data: item.data, tipo: item.tipo },
+  });
+
   return json(200, { message: 'Richiesta approvata' });
 }
 
 // --- POST /requests/{id}/reject — il manager rifiuta con motivo obbligatorio ---
-async function rifiutaRequest(requestId: string, event: APIGatewayProxyEvent) {
+async function rifiutaRequest(requestId: string, event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
   const { motivo } = JSON.parse(event.body);
   if (!motivo?.trim()) return json(400, 'Il motivo del rifiuto è obbligatorio');
@@ -182,6 +193,15 @@ async function rifiutaRequest(requestId: string, event: APIGatewayProxyEvent) {
       ':m': motivo.trim(),
     }),
   }));
+
+  await writeAudit(AUDIT_TABLE, {
+    actor:      claims['cognito:username'],
+    actorRole:  'manager',
+    action:     'REQUEST_REJECT',
+    entityType: 'request',
+    entityId:   requestId,
+    details:    { userId: item.userId, motivo: motivo.trim() },
+  });
 
   return json(200, { message: 'Richiesta rifiutata' });
 }

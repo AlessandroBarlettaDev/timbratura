@@ -5,11 +5,13 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { getJwtClaims, isManagerClaims } from './auth';
+import { writeAudit } from './audit';
 
 const dynamo        = new DynamoDBClient({});
 const TABLE_NAME       = process.env.STAZIONI_TABLE_NAME!;
 const TIMBRATURE_TABLE = process.env.TIMBRATURE_TABLE_NAME!;
 const JWT_SECRET       = process.env.JWT_SECRET!;
+const AUDIT_TABLE      = process.env.AUDIT_TABLE_NAME!;
 const APP_URL          = process.env.APP_URL ?? 'http://localhost:4200';
 const QR_TTL_SECS   = 3 * 60;  // il QR scade dopo 3 minuti
 
@@ -35,17 +37,17 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   const claims = getJwtClaims(event);
   if (!isManagerClaims(claims)) return json(403, 'Accesso negato');
 
-  if (httpMethod === 'POST'   && resource === '/stazioni')       return await createStazione(event);
+  if (httpMethod === 'POST'   && resource === '/stazioni')       return await createStazione(event, claims);
   if (httpMethod === 'GET'    && resource === '/stazioni')       return await listStazioni();
   if (httpMethod === 'GET'    && resource === '/stazioni/{id}')  return await getStazioneDettaglio(event.pathParameters?.id!);
-  if (httpMethod === 'DELETE' && resource === '/stazioni/{id}')  return await deleteStazione(event.pathParameters?.id!);
+  if (httpMethod === 'DELETE' && resource === '/stazioni/{id}')  return await deleteStazione(event.pathParameters?.id!, claims);
 
   return json(404, 'Rotta non trovata');
 };
 
 // --- POST /stazioni — crea una nuova stazione (manager) ---
 // Il manager fornisce descrizione e password; il codice è generato automaticamente
-async function createStazione(event: APIGatewayProxyEvent) {
+async function createStazione(event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
 
   const { descrizione, password } = JSON.parse(event.body);
@@ -71,6 +73,15 @@ async function createStazione(event: APIGatewayProxyEvent) {
       createdAt: new Date().toISOString(),
     }),
   }));
+
+  await writeAudit(AUDIT_TABLE, {
+    actor:      claims?.['cognito:username'] ?? 'system',
+    actorRole:  'manager',
+    action:     'STATION_CREATE',
+    entityType: 'station',
+    entityId:   stationId,
+    details:    { descrizione, codice },
+  });
 
   return json(201, { stationId, descrizione, codice });
 }
@@ -120,11 +131,20 @@ async function getStazioneDettaglio(stationId: string) {
 }
 
 // --- DELETE /stazioni/{id} — elimina una stazione (manager) ---
-async function deleteStazione(stationId: string) {
+async function deleteStazione(stationId: string, claims: any) {
   await dynamo.send(new DeleteItemCommand({
     TableName: TABLE_NAME,
     Key: marshall({ stationId }),
   }));
+
+  await writeAudit(AUDIT_TABLE, {
+    actor:      claims?.['cognito:username'] ?? 'system',
+    actorRole:  'manager',
+    action:     'STATION_DELETE',
+    entityType: 'station',
+    entityId:   stationId,
+  });
+
   return json(200, { message: 'Stazione eliminata' });
 }
 
