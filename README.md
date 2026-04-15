@@ -161,7 +161,7 @@ Il sistema non permette l'accesso alla dashboard finché entrambi i flag non son
 
 ### 5.3 Login dipendente
 
-**Con email + password** — flusso standard Amplify/Cognito con reindirizzamento automatico in base al ruolo. Il browser può salvare le credenziali nel portachiavi del dispositivo (iCloud Keychain, Google Password Manager, ecc.) per accessi successivi con biometria nativa.
+**Con email + password** — flusso standard Amplify/Cognito con reindirizzamento automatico in base al ruolo. Il browser può salvare le credenziali nel portachiavi del dispositivo (iCloud Keychain, Google Password Manager, ecc.) per accessi successivi con biometria nativa. La biometria custom (`@simplewebauthn`) è usata esclusivamente nel flusso di timbratura.
 
 ### 5.4 Login stazione
 
