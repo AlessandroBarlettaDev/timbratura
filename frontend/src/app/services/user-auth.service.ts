@@ -44,17 +44,6 @@ export class AuthService {
         await this.checkCurrentSession();
     }
 
-    // Login con passkey Cognito (USER_AUTH + WEB_AUTHN) — richiede email per identificare l'utente
-    async loginWithBiometrics(email: string): Promise<void> {
-        await signOut().catch(() => {});
-        const { isSignedIn } = await signIn({
-            username: email,
-            options:  { authFlowType: 'USER_AUTH', preferredChallenge: 'WEB_AUTHN' },
-        });
-        if (!isSignedIn) throw new Error('Autenticazione biometrica non completata');
-        await this.checkCurrentSession();
-    }
-
     // Recupera i dati dell'utente e i gruppi dai token
     async checkCurrentSession() {
         try {

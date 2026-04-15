@@ -2,8 +2,9 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/user-auth.service';
 
-type Step = 'verifica' | 'biometrica' | 'conferma' | 'errore';
+type Step = 'verifica' | 'biometrica' | 'conferma' | 'successo' | 'errore';
 
 @Component({
   selector: 'app-timbratura',
@@ -29,6 +30,7 @@ export class Timbratura implements OnInit {
     private route:  ActivatedRoute,
     private router: Router,
     private api:    ApiService,
+    private auth:   AuthService,
     private cdr:    ChangeDetectorRef,
   ) {}
 
@@ -131,15 +133,25 @@ export class Timbratura implements OnInit {
         this.api.confermaTimbratura(this.confirmToken).subscribe({ next: resolve, error: reject });
       });
       this.durataMinuti = result.durataMinuti;
-      this.cdr.detectChanges();
-      await new Promise(r => setTimeout(r, this.tipo === 'uscita' && result.durataMinuti ? 1800 : 0));
-      this.router.navigate(['/dashboard-employee']);
+      this.step = 'successo';
 
     } catch (err: any) {
       this.mostraErrore(err?.error?.message ?? err?.message ?? 'Errore durante la timbratura');
     } finally {
       this.caricamento = false;
       this.cdr.detectChanges();
+    }
+  }
+
+  get isLoggedIn(): boolean {
+    return !!this.auth.currentUser();
+  }
+
+  vaiAvanti() {
+    if (this.isLoggedIn) {
+      this.router.navigate([this.auth.isManager ? '/dashboard-manager' : '/dashboard-employee']);
+    } else {
+      this.router.navigate(['/login']);
     }
   }
 

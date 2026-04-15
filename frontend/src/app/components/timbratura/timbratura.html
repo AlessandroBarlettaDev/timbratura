@@ -43,11 +43,31 @@
       </button>
     }
 
+    <!-- Step 3 — Conferma avvenuta -->
+    @if (step === 'successo') {
+      <p style="font-size: 48px; margin-bottom: 12px;">✅</p>
+      <h2 style="margin-bottom: 8px;">Timbratura registrata</h2>
+      <p style="color: #666; font-size: 14px; margin-bottom: 4px; text-transform: capitalize;">{{ tipo }} — {{ nome }} {{ cognome }}</p>
+      @if (durataMinuti != null) {
+        <p style="color: #333; font-size: 15px; font-weight: 600; margin-bottom: 28px;">
+          Durata: {{ durataLabel }}
+        </p>
+      } @else {
+        <p style="margin-bottom: 28px;"></p>
+      }
+      <button class="btn-login" (click)="vaiAvanti()">
+        {{ isLoggedIn ? 'Vai alla dashboard' : 'Torna al login' }}
+      </button>
+    }
+
     <!-- Errore -->
     @if (step === 'errore') {
       <p style="font-size: 48px; margin-bottom: 12px;">⚠️</p>
       <h2 style="margin-bottom: 12px;">Impossibile timbrare</h2>
-      <p style="color: #666; font-size: 14px;">{{ errore }}</p>
+      <p style="color: #666; font-size: 14px; margin-bottom: 28px;">{{ errore }}</p>
+      <button class="btn-login" (click)="vaiAvanti()">
+        {{ isLoggedIn ? 'Vai alla dashboard' : 'Torna al login' }}
+      </button>
     }
 
   </div>

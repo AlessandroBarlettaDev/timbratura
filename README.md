@@ -151,19 +151,17 @@ timbratura/
 
 Al primo login il sistema guida il dipendente in due step obbligatori prima di accedere alla dashboard:
 
-**Step 1 — Cambio password**
-Cognito marca ogni utente creato da admin con `FORCE_CHANGE_PASSWORD`. Al login Amplify intercetta la challenge e il frontend mostra il form di cambio password inline. Al completamento il flag `custom:password_changed` viene impostato su Cognito.
+**Step 1 — Cambio password (inline nel login)**
+Cognito marca ogni utente creato da admin con `FORCE_CHANGE_PASSWORD`. Al login Amplify intercetta la challenge e il frontend mostra il form di cambio password direttamente nella pagina di login (senza navigare via, per non perdere lo stato della sessione). Al completamento il flag `custom:password_changed` viene impostato su Cognito e il dipendente viene reindirizzato a `/first-access`.
 
-**Step 2 — Registrazione biometrica**
+**Step 2 — Registrazione biometrica (`/first-access`)**
 Il dipendente registra il proprio dispositivo biometrico (Touch ID, Face ID, Windows Hello) tramite il protocollo WebAuthn. La chiave pubblica viene salvata in DynamoDB. Da questo momento il dispositivo è l'unica credenziale necessaria per timbrare. Al completamento il flag `custom:biometrics_reg` viene impostato su Cognito.
 
 Il sistema non permette l'accesso alla dashboard finché entrambi i flag non sono attivi (`onboardingGuard`).
 
 ### 5.3 Login dipendente
 
-**Con email + password** — flusso standard Amplify/Cognito con reindirizzamento automatico in base al ruolo.
-
-**Con biometria** — il dipendente preme "Accedi con impronta / Face ID": Amplify avvia il flusso `USER_AUTH` con `preferredChallenge: WEB_AUTHN` e il browser presenta il prompt biometrico nativo.
+**Con email + password** — flusso standard Amplify/Cognito con reindirizzamento automatico in base al ruolo. Il browser può salvare le credenziali nel portachiavi del dispositivo (iCloud Keychain, Google Password Manager, ecc.) per accessi successivi con biometria nativa.
 
 ### 5.4 Login stazione
 
@@ -201,6 +199,9 @@ Il dipendente scansiona il QR con il proprio telefono:
       - Risponde con: tipo, nome, cognome
 6. Dipendente vede l'anteprima e conferma
 7. POST /timbrature/conferma → timbratura salvata definitivamente
+8. Schermata di conferma con esito (successo o errore) e pulsante:
+      - Se loggato → vai alla dashboard (manager o employee)
+      - Se non loggato → torna al login
 ```
 
 Il flusso in due fasi (anteprima → conferma) permette al dipendente di verificare i dati prima che vengano registrati. Il tipo (entrata/uscita) è calcolato solo sulle timbrature **del giorno corrente** — ogni giorno riparte da zero indipendentemente dal giorno precedente.
@@ -242,7 +243,7 @@ Gestisce il caso in cui un dipendente dimentica di timbrare entrata o uscita.
 
 | Meccanismo | Dove | Dettaglio |
 |---|---|---|
-| **WebAuthn/FIDO2** | Timbratura + login | Autenticatore platform (Touch ID, Face ID, Windows Hello) — nessuna chiave esterna accettata |
+| **WebAuthn/FIDO2** | Timbratura | Autenticatore platform (Touch ID, Face ID, Windows Hello) — nessuna chiave esterna accettata |
 | **HMAC-SHA256** | QR code | Il token del QR è firmato con il secret server — non falsificabile senza la chiave |
 | **JWT Cognito** | API protette | Verificato da API Gateway prima di invocare la Lambda |
 | **JWT custom** | Stazioni | Firmato HMAC-SHA256, verificato dentro la Lambda — scade ogni 24h |
@@ -426,9 +427,6 @@ Se la stazione ha coordinate GPS configurate, il dipendente deve avere il GPS at
 ---
 
 ## 12. Sviluppi futuri
-
-### Login biometrico senza inserimento email
-Al momento il pulsante "Accedi con impronta / Face ID" nella pagina di login richiede ancora l'email nel campo. L'obiettivo è rendere il login completamente passwordless: il frontend avvia una challenge WebAuthn custom, il backend identifica l'utente dal `credentialId` in DynamoDB, genera i token Cognito tramite un flusso `CUSTOM_AUTH` e li restituisce al frontend.
 
 ### Gestione orari e contratti
 Aggiungere il concetto di orario previsto per dipendente/reparto — necessario per calcolare straordinari, ore mancanti e confrontare pianificato vs effettivo.

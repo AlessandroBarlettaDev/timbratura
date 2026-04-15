@@ -27,8 +27,6 @@ input:focus { border-color: #000; }
 /* ── Pulsanti ── */
 .btn-login { width: 100%; padding: 14px; background: #000; color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; transition: opacity 0.3s; }
 .btn-login:hover { opacity: 0.8; }
-.btn-biometric { width: 100%; padding: 14px; background: #1565c0; color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 10px; transition: opacity 0.3s; }
-.btn-biometric:hover { opacity: 0.85; }
 .btn-forgot { display: block; margin-top: 20px; background: none; border: none; color: #666; font-size: 13px; text-decoration: underline; cursor: pointer; width: 100%; }
 .btn-back { background: none; border: none; font-size: 14px; color: #666; cursor: pointer; padding: 0; margin-bottom: 20px; display: block; }
 .btn-back:hover { color: #000; }

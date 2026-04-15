@@ -136,24 +136,6 @@ export class Login {
     }
   }
 
-  // Login biometrico — usa l'email dal campo form, poi autentica con passkey Cognito
-  async loginWithBiometrics() {
-    const email = this.form.get('user')?.value?.trim();
-    if (!email) {
-      this.loginError = 'Inserisci la tua email prima di usare il riconoscimento biometrico';
-      this.cdr.detectChanges();
-      return;
-    }
-    this.loginError = null;
-    try {
-      await this.authService.loginWithBiometrics(email);
-      this.navigateAfterLogin();
-    } catch (err: any) {
-      this.loginError = err.message;
-      this.cdr.detectChanges();
-    }
-  }
-
   // Step 1 reset: chiede a Cognito di inviare il codice di verifica via email
   async requestPasswordReset() {
     if (this.resetRequestForm.invalid) return;
