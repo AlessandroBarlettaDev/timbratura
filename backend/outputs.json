@@ -1,10 +1,24 @@
 {
   "BackendStack": {
     "CognitoConfigClientIdDFB3EB21": "t611afhrq23s5ttu8j29uqg9l",
+    "DynamoDbConfigWebAuthnTableName2990A8B7": "WebAuthnCredentials",
     "ApiTimbraturaApiEndpoint7907C12B": "https://lyd2nnmk7e.execute-api.eu-west-1.amazonaws.com/prod/",
     "CognitoConfigUserPoolId5FBAA45D": "eu-west-1_sPhrtlr1b",
     "DynamoDbConfigTimbratureTableNameD79F4372": "Timbrature",
     "DynamoDbConfigStazioniTableNameF9D75DB3": "Stazioni",
-    "HostingAppUrl0FD4F1DC": "https://d2csjqqicya19l.cloudfront.net"
+    "HostingAppUrl0FD4F1DC": "https://d2csjqqicya19l.cloudfront.net",
+    "DynamoDbConfigRequestsTableName4030B70D": "Requests"
+  },
+  "BackendStack-dev": {
+    "CognitoConfigClientIdDFB3EB21": "6t804sdh72ds4t2jbmf6t386g4",
+    "HostingCloudFrontDistributionId1C92B2F7": "E6Z6FOU5J88SU",
+    "DynamoDbConfigWebAuthnTableName2990A8B7": "WebAuthnCredentials-dev",
+    "ApiTimbraturaApiEndpoint7907C12B": "https://cgohrg9hm9.execute-api.eu-west-1.amazonaws.com/prod/",
+    "CognitoConfigUserPoolId5FBAA45D": "eu-west-1_d342DZAGn",
+    "HostingFrontendBucketNameFE5ADA5A": "backendstack-dev-hostingfrontendbucket74d527b5-tgifhymsrnyb",
+    "DynamoDbConfigTimbratureTableNameD79F4372": "Timbrature-dev",
+    "DynamoDbConfigStazioniTableNameF9D75DB3": "Stazioni-dev",
+    "HostingAppUrl0FD4F1DC": "https://d3buvwp118s6yj.cloudfront.net",
+    "DynamoDbConfigRequestsTableName4030B70D": "Requests-dev"
   }
 }
