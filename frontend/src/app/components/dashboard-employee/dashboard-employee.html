@@ -17,54 +17,137 @@
         <div class="spinner-container"><div class="spinner"></div></div>
       } @else if (profile) {
 
-        <!-- ── PROFILO ── -->
-        <div style="background: #fff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 36px;">
-          <h2 class="panel-title">{{ profile.given_name }} {{ profile.family_name }}</h2>
-
-          <div class="detail-list">
-            <div class="detail-item">
-              <span class="detail-label">Email</span>
-              <span>{{ profile.email }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Data di nascita</span>
-              <span>{{ profile.birthdate || '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Codice fiscale</span>
-              <span>{{ profile.codice_fiscale || '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Data assunzione</span>
-              <span>{{ profile.data_assunzione || '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Fine contratto</span>
-              <span>{{ profile.termine_contratto || '—' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Password cambiata</span>
-              <span class="badge" [class.badge-active]="profile.password_changed === 'true'" [class.badge-inactive]="profile.password_changed !== 'true'">
-                {{ profile.password_changed === 'true' ? 'Sì' : 'No' }}
-              </span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Biometria registrata</span>
-              <span class="badge" [class.badge-active]="profile.biometrics_reg === 'true'" [class.badge-inactive]="profile.biometrics_reg !== 'true'">
-                {{ profile.biometrics_reg === 'true' ? 'Sì' : 'No' }}
-              </span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Presente ora</span>
-              @if (presenteOra === true) {
-                <span class="badge badge-active">Sì</span>
-              } @else if (presenteOra === false) {
-                <span class="badge badge-inactive">No</span>
-              } @else {
-                <span class="badge badge-inactive">—</span>
-              }
-            </div>
+        <!-- ── DETTAGLI UTENTE (collassabile) ── -->
+        <div style="background: #fff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 28px 36px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" (click)="dettagliUtenteOpen = !dettagliUtenteOpen">
+            <h2 class="panel-title" style="margin:0;">Dettagli utente</h2>
+            <span style="font-size:13px; color:#9ca3af; transition:transform 0.2s; display:inline-block;"
+                  [style.transform]="dettagliUtenteOpen ? 'rotate(180deg)' : 'rotate(0deg)'">▼</span>
           </div>
+          @if (dettagliUtenteOpen) {
+            <div class="detail-list" style="margin-top:16px;">
+              <div class="detail-item">
+                <span class="detail-label">Email</span>
+                <span>{{ profile.email }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Data di nascita</span>
+                <span>{{ profile.birthdate || '—' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Codice fiscale</span>
+                <span>{{ profile.codice_fiscale || '—' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Password cambiata</span>
+                <span class="badge" [class.badge-active]="profile.password_changed === 'true'" [class.badge-inactive]="profile.password_changed !== 'true'">
+                  {{ profile.password_changed === 'true' ? 'Sì' : 'No' }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Biometria registrata</span>
+                <span class="badge" [class.badge-active]="profile.biometrics_reg === 'true'" [class.badge-inactive]="profile.biometrics_reg !== 'true'">
+                  {{ profile.biometrics_reg === 'true' ? 'Sì' : 'No' }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Presente ora</span>
+                @if (presenteOra === true) {
+                  <span class="badge badge-active">Sì</span>
+                } @else if (presenteOra === false) {
+                  <span class="badge badge-inactive">No</span>
+                } @else {
+                  <span class="badge badge-inactive">—</span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- ── CONTRATTO (collassabile) ── -->
+        <div style="background: #fff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 28px 36px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" (click)="contrattoOpen = !contrattoOpen">
+            <h2 class="panel-title" style="margin:0;">Il mio contratto</h2>
+            <span style="font-size:13px; color:#9ca3af; transition:transform 0.2s; display:inline-block;"
+                  [style.transform]="contrattoOpen ? 'rotate(180deg)' : 'rotate(0deg)'">▼</span>
+          </div>
+          @if (contrattoOpen) {
+            @if (contrattiLoading) {
+              <div class="spinner-container" style="margin-top:16px;"><div class="spinner"></div></div>
+            } @else if (contrattoAttivo) {
+              <div class="detail-list" style="margin-top:16px;">
+                <div class="detail-item"><span class="detail-label">Tipo</span>          <span>{{ tipoContrattoLabel(contrattoAttivo.tipoContratto) }}</span></div>
+                <div class="detail-item"><span class="detail-label">Inizio</span>        <span>{{ contrattoAttivo.dataInizio }}</span></div>
+                <div class="detail-item"><span class="detail-label">Fine</span>          <span>{{ contrattoAttivo.dataFine || 'Indeterminato' }}</span></div>
+                @if (contrattoAttivo.oreSett)           { <div class="detail-item"><span class="detail-label">Ore/settimana</span>    <span>{{ contrattoAttivo.oreSett }}h</span></div> }
+                @if (contrattoAttivo.giorniSett)        { <div class="detail-item"><span class="detail-label">Giorni/settimana</span> <span>{{ contrattoAttivo.giorniSett }}</span></div> }
+                @if (contrattoAttivo.retribuzioneLorda) { <div class="detail-item"><span class="detail-label">Lordo mensile</span>   <span>{{ contrattoAttivo.retribuzioneLorda | number:'1.0-0' }} €</span></div> }
+                @if (contrattoAttivo.retribuzioneNetta) { <div class="detail-item"><span class="detail-label">Netto mensile</span>   <span>{{ contrattoAttivo.retribuzioneNetta | number:'1.0-0' }} €</span></div> }
+                @if (contrattoAttivo.livello)           { <div class="detail-item"><span class="detail-label">Livello</span>         <span>{{ contrattoAttivo.livello }}</span></div> }
+                @if (contrattoAttivo.mansione)          { <div class="detail-item"><span class="detail-label">Mansione</span>        <span>{{ contrattoAttivo.mansione }}</span></div> }
+                @if (contrattoAttivo.ccnl)              { <div class="detail-item"><span class="detail-label">CCNL</span>            <span>{{ contrattoAttivo.ccnl }}</span></div> }
+                @if (contrattoAttivo.giorniFerie)       { <div class="detail-item"><span class="detail-label">Ferie annuali</span>   <span>{{ contrattoAttivo.giorniFerie }} gg</span></div> }
+                @if (contrattoAttivo.permessiOre)       { <div class="detail-item"><span class="detail-label">Permessi (ROL)</span>  <span>{{ contrattoAttivo.permessiOre }}h</span></div> }
+                @if (contrattoAttivo.note)              { <div class="detail-item"><span class="detail-label">Note</span>            <span style="white-space:pre-wrap; word-break:break-word;">{{ contrattoAttivo.note }}</span></div> }
+              </div>
+            } @else {
+              <p style="margin:16px 0 0; color:#9ca3af; font-size:14px;">Nessun contratto registrato.</p>
+            }
+          }
+        </div>
+
+        <!-- ── RICHIESTE ── -->
+        <div style="background: #fff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 36px;">
+          <div class="panel-header" style="margin-bottom: 16px;">
+            <h3 class="panel-title" style="font-size: 16px;">Le mie richieste</h3>
+            <button class="btn-detail-action btn-detail-primary" (click)="openRequestModal()">+ Nuova richiesta</button>
+          </div>
+
+          @if (requestsLoading) {
+            <div class="spinner-container"><div class="spinner"></div></div>
+          } @else if (mieRequests.length > 0) {
+            <div style="overflow-x: auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Tipo</th>
+                    <th>Ora</th>
+                    <th>Nota</th>
+                    <th>Stato</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (r of mieRequests; track r.requestId) {
+                    <tr>
+                      <td>{{ r.data }}</td>
+                      <td>
+                        <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
+                          {{ r.tipo | titlecase }}
+                        </span>
+                      </td>
+                      <td>{{ r.ora }}</td>
+                      <td style="max-width:200px; white-space:normal; word-break:break-word;">{{ r.nota }}</td>
+                      <td>
+                        <span class="badge"
+                          [class.badge-inactive]="r.stato === 'pendente'"
+                          [class.badge-active]="r.stato === 'approvata'"
+                          [style.background]="r.stato === 'rifiutata' ? '#fee2e2' : ''"
+                          [style.color]="r.stato === 'rifiutata' ? '#991b1b' : ''">
+                          {{ statoLabel(r.stato) }}
+                        </span>
+                        @if (r.stato === 'rifiutata' && r.motivoRifiuto) {
+                          <span style="display:block; font-size:11px; color:#999; margin-top:4px;">{{ r.motivoRifiuto }}</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="empty-state">Nessuna richiesta inviata.</p>
+          }
         </div>
 
         <!-- ── TIMBRATURE ── -->
@@ -142,60 +225,6 @@
             </div>
           } @else {
             <p class="empty-state">Nessuna timbratura per {{ periodoLabel }}.</p>
-          }
-        </div>
-
-        <!-- ── RICHIESTE ── -->
-        <div style="background: #fff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 36px;">
-          <div class="panel-header" style="margin-bottom: 16px;">
-            <h3 class="panel-title" style="font-size: 16px;">Le mie richieste</h3>
-            <button class="btn-login" style="width:auto; padding: 8px 20px;" (click)="openRequestModal()">+ Nuova richiesta</button>
-          </div>
-
-          @if (requestsLoading) {
-            <div class="spinner-container"><div class="spinner"></div></div>
-          } @else if (mieRequests.length > 0) {
-            <div style="overflow-x: auto;">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Tipo</th>
-                    <th>Ora</th>
-                    <th>Nota</th>
-                    <th>Stato</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (r of mieRequests; track r.requestId) {
-                    <tr>
-                      <td>{{ r.data }}</td>
-                      <td>
-                        <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
-                          {{ r.tipo | titlecase }}
-                        </span>
-                      </td>
-                      <td>{{ r.ora }}</td>
-                      <td style="max-width:200px; white-space:normal; word-break:break-word;">{{ r.nota }}</td>
-                      <td>
-                        <span class="badge"
-                          [class.badge-inactive]="r.stato === 'pendente'"
-                          [class.badge-active]="r.stato === 'approvata'"
-                          [style.background]="r.stato === 'rifiutata' ? '#fee2e2' : ''"
-                          [style.color]="r.stato === 'rifiutata' ? '#991b1b' : ''">
-                          {{ statoLabel(r.stato) }}
-                        </span>
-                        @if (r.stato === 'rifiutata' && r.motivoRifiuto) {
-                          <span style="display:block; font-size:11px; color:#999; margin-top:4px;">{{ r.motivoRifiuto }}</span>
-                        }
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          } @else {
-            <p class="empty-state">Nessuna richiesta inviata.</p>
           }
         </div>
 

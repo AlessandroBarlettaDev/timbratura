@@ -1,12 +1,12 @@
 import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TitleCasePipe } from '@angular/common';
+import { TitleCasePipe, DecimalPipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/user-auth.service';
 
 @Component({
   selector: 'app-dashboard-employee',
-  imports: [FormsModule, TitleCasePipe],
+  imports: [FormsModule, TitleCasePipe, DecimalPipe],
   templateUrl: './dashboard-employee.html',
   styleUrl: '../../app.css',
 })
@@ -15,6 +15,12 @@ export class DashboardEmployee implements OnInit {
   // ─── Profilo ──────────────────────────────────────────────────────────────
   profile: any = null;
   profileLoading = false;
+
+  // ─── Contratto ────────────────────────────────────────────────────────────
+  contratti: any[]     = [];
+  contrattiLoading     = false;
+  dettagliUtenteOpen   = false;
+  contrattoOpen        = false;
 
   // ─── Timbrature ───────────────────────────────────────────────────────────
   timbrature: any[]  = [];
@@ -51,10 +57,28 @@ export class DashboardEmployee implements OnInit {
         this.profileLoading = false;
         this.loadTimbrature();
         this.loadMieRequests();
+        this.loadMioContratto();
         this.cdr.detectChanges();
       },
       error: (err) => { console.error('[employee] errore profilo:', err); this.profileLoading = false; this.cdr.detectChanges(); },
     });
+  }
+
+
+  // ─── Contratto ────────────────────────────────────────────────────────────
+
+  loadMioContratto() {
+    this.contrattiLoading = true;
+    this.apiService.getMyContracts().subscribe({
+      next: (data) => { this.contratti = data; this.contrattiLoading = false; this.cdr.detectChanges(); },
+      error: (err)  => { console.error('Errore contratto:', err); this.contrattiLoading = false; this.cdr.detectChanges(); },
+    });
+  }
+
+  get contrattoAttivo(): any | null { return this.contratti[0] ?? null; }
+
+  tipoContrattoLabel(tipo: string): string {
+    return { indeterminato: 'Indeterminato', determinato: 'Determinato', part_time: 'Part-time', apprendistato: 'Apprendistato', stage: 'Stage' }[tipo] ?? tipo;
   }
 
 
@@ -208,25 +232,83 @@ export class DashboardEmployee implements OnInit {
   scaricaTimbratureExcel() {
     if (this.timbrature.length === 0) return;
 
-    const nomeUtente = `${this.profile?.given_name ?? ''} ${this.profile?.family_name ?? ''}`.trim();
+    const u    = this.profile;
+    const c    = this.contrattoAttivo;
+    const nome = `${u?.given_name ?? ''} ${u?.family_name ?? ''}`.trim();
     const mm   = this.meseSelezionato ? `-${String(this.meseSelezionato).padStart(2, '0')}` : '-annuale';
-    const slug = nomeUtente.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const slug = nome.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const e    = (v: string) => this.escapeCsv(v);
 
-    const riepilogo = [
-      ['Dipendente',      this.escapeCsv(nomeUtente)],
-      ['Periodo',         this.escapeCsv(this.periodoLabel)],
-      ['Ore lavorate',    this.escapeCsv(this.oreLavorate)],
-      ['Giorni lavorati', this.escapeCsv(String(this.giorniLavorati))],
-      ['Media giornaliera', this.escapeCsv(this.mediaGiornaliera)],
-      [],
-    ].map(r => r.join(';'));
+    const sezioni: string[] = [];
 
-    const intestazione = ['Data', 'Entrata', 'Uscita', 'Durata', 'Sede'];
-    const righe = this.turni.map(t =>
-      [t.data, t.entrata, t.uscita ?? '—', t.durata ?? '—', t.sede].map(v => this.escapeCsv(v))
+    // ── ANAGRAFICA ────────────────────────────────────────────────────────────
+    sezioni.push(
+      [e('=== ANAGRAFICA ==='), ''].join(';'),
+      [e('Dipendente'),   e(nome)].join(';'),
+      ...(u?.email          ? [[e('Email'),         e(u.email)].join(';')]          : []),
+      ...(u?.codice_fiscale ? [[e('Codice fiscale'), e(u.codice_fiscale)].join(';')] : []),
+      '',
     );
 
-    const csv  = ['\ufeff' + riepilogo.join('\n'), intestazione.join(';'), ...righe.map(r => r.join(';'))].join('\n');
+    // ── CONTRATTO ─────────────────────────────────────────────────────────────
+    if (c) {
+      const tl = (t: string) => ({ indeterminato: 'Indeterminato', determinato: 'Determinato', part_time: 'Part-time', apprendistato: 'Apprendistato', stage: 'Stage' }[t] ?? t);
+      sezioni.push(
+        [e('=== CONTRATTO ==='), ''].join(';'),
+        [e('Tipo'),        e(tl(c.tipoContratto))].join(';'),
+        [e('Data inizio'), e(c.dataInizio)].join(';'),
+        [e('Data fine'),   e(c.dataFine || '—')].join(';'),
+        ...(c.oreSett           ? [[e('Ore sett.'),     e(`${c.oreSett}h`)].join(';')]                                            : []),
+        ...(c.giorniSett        ? [[e('Giorni sett.'),  e(String(c.giorniSett))].join(';')]                                       : []),
+        ...(c.retribuzioneLorda ? [[e('Lordo mensile'), e(`${c.retribuzioneLorda.toLocaleString('it-IT')} €`)].join(';')]         : []),
+        ...(c.retribuzioneNetta ? [[e('Netto mensile'), e(`${c.retribuzioneNetta.toLocaleString('it-IT')} €`)].join(';')]         : []),
+        ...(c.livello           ? [[e('Livello'),       e(c.livello)].join(';')]                                                   : []),
+        ...(c.mansione          ? [[e('Mansione'),      e(c.mansione)].join(';')]                                                  : []),
+        ...(c.ccnl              ? [[e('CCNL'),          e(c.ccnl)].join(';')]                                                     : []),
+        ...(c.giorniFerie       ? [[e('Ferie annuali'), e(`${c.giorniFerie} gg`)].join(';')]                                      : []),
+        ...(c.permessiOre       ? [[e('Permessi ROL'),  e(`${c.permessiOre}h`)].join(';')]                                        : []),
+        '',
+      );
+    }
+
+    // ── ANALISI PERIODO ───────────────────────────────────────────────────────
+    if (c?.oreSett) {
+      const minutiLavorati = this.calcolaMinutiLavorati(this.timbrature);
+      const giorniLavAtt   = this.countWorkingDays(this.annoSelezionato, this.meseSelezionato);
+      const orePerGiorno   = c.oreSett / (c.giorniSett ?? 5);
+      const minutiAttesi   = Math.round(giorniLavAtt * orePerGiorno * 60);
+      const minutiStraord  = Math.max(0, minutiLavorati - minutiAttesi);
+      const minutiMancanti = Math.max(0, minutiAttesi - minutiLavorati);
+      const retribOraria   = c.retribuzioneLorda ? c.retribuzioneLorda / (c.oreSett * 52 / 12) : null;
+      const importoStraord = retribOraria ? (minutiStraord / 60) * retribOraria : null;
+
+      sezioni.push(
+        [e('=== ANALISI PERIODO ==='), ''].join(';'),
+        [e('Periodo'),                     e(this.periodoLabel)].join(';'),
+        [e('Giorni lavorativi attesi'),    e(String(giorniLavAtt))].join(';'),
+        [e('Ore contrattuali attese'),     e(this.formatDurata(minutiAttesi))].join(';'),
+        [e('Ore effettivamente lavorate'), e(this.formatDurata(minutiLavorati))].join(';'),
+        [e('Ore straordinarie'),           e(minutiStraord > 0 ? this.formatDurata(minutiStraord) : '—')].join(';'),
+        [e('Ore mancanti'),                e(minutiMancanti > 0 ? this.formatDurata(minutiMancanti) : '—')].join(';'),
+        ...(retribOraria ? [[e('Retribuzione oraria lorda'), e(`${retribOraria.toFixed(2).replace('.', ',')} €`)].join(';')] : []),
+        ...(c.retribuzioneNetta && this.meseSelezionato != null ? [[e('Stipendio base netto'), e(`${c.retribuzioneNetta.toLocaleString('it-IT')} €`)].join(';')] : []),
+        ...(importoStraord != null && minutiStraord > 0 ? [[e('Importo straordinari lordo (indicativo)'), e(`${importoStraord.toFixed(2).replace('.', ',')} €`)].join(';')] : []),
+        [e('* I festivi non sono inclusi nel conteggio dei giorni lavorativi'), ''].join(';'),
+        '',
+      );
+    }
+
+    // ── TURNI ─────────────────────────────────────────────────────────────────
+    sezioni.push(
+      [e('=== TURNI ==='), ''].join(';'),
+      ['Data', 'Entrata', 'Uscita', 'Durata', 'Ore decimali', 'Sede'].map(e).join(';'),
+      ...this.turni.map(t => [
+        t.data, t.entrata, t.uscita ?? '—', t.durata ?? '—',
+        this.durataToDecimal(t.durata), t.sede,
+      ].map(v => e(v)).join(';')),
+    );
+
+    const csv  = '\ufeff' + sezioni.join('\n');
     const blob = new Blob([csv], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const link = document.createElement('a');
     link.href  = URL.createObjectURL(blob);
@@ -291,6 +373,28 @@ export class DashboardEmployee implements OnInit {
     const h = Math.floor(minuti / 60);
     const m = minuti % 60;
     return h > 0 ? `${h}h ${m}min` : `${m}min`;
+  }
+
+  private durataToDecimal(durata: string | null): string {
+    if (!durata) return '';
+    const h = durata.match(/(\d+)h/);
+    const m = durata.match(/(\d+)min/);
+    const tot = (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0);
+    return (tot / 60).toFixed(2).replace('.', ',');
+  }
+
+  private countWorkingDays(anno: number, mese: number | null): number {
+    if (mese == null) {
+      return Array.from({ length: 12 }, (_, i) => this.countWorkingDays(anno, i + 1))
+                  .reduce((a, b) => a + b, 0);
+    }
+    let count = 0;
+    const days = new Date(anno, mese, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+      const dow = new Date(anno, mese - 1, d).getDay();
+      if (dow !== 0 && dow !== 6) count++;
+    }
+    return count;
   }
 
   private escapeCsv(value: string): string {

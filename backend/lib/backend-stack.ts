@@ -106,6 +106,19 @@ export class BackendStack extends cdk.Stack {
     // Permesso per leggere nome/cognome del dipendente da Cognito al momento della timbratura
     cognito.userPool.grant(timbratureHandler, 'cognito-idp:AdminGetUser');
 
+    // Lambda per la gestione dei contratti di lavoro
+    const contractsHandler = new NodejsFunction(this, 'ContractsHandler', {
+      runtime: Runtime.NODEJS_22_X,
+      entry:   path.join(__dirname, 'lambda/contracts-handler.ts'),
+      handler: 'handler',
+      environment: {
+        CONTRACTS_TABLE_NAME: dynamo.contractsTable.tableName,
+        USER_POOL_ID:         cognito.userPool.userPoolId,
+      },
+    });
+    dynamo.contractsTable.grantReadWriteData(contractsHandler);
+    cognito.userPool.grant(contractsHandler, 'cognito-idp:AdminGetUser');
+
     // Lambda per le richieste di timbratura manuale
     const requestsHandler = new NodejsFunction(this, 'RequestsHandler', {
       runtime: Runtime.NODEJS_22_X,
@@ -129,5 +142,6 @@ export class BackendStack extends cdk.Stack {
     api.addStazioniRoutes(stazioniHandler);
     api.addTimbratureRoutes(timbratureHandler);
     api.addRequestsRoutes(requestsHandler);
+    api.addContractsRoutes(contractsHandler);
   }
 }

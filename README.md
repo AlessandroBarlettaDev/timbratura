@@ -54,31 +54,32 @@ Sistema di gestione presenze con autenticazione biometrica (WebAuthn/FIDO2), svi
 ┌──────────────────────────────────────────────────────────────────┐
 │                            AWS Cloud                             │
 │                                                                  │
-│  ┌──────────┐    ┌───────────────┐    ┌─────────────┐           │
-│  │CloudFront│───▶│  S3 (hosting) │    │   Cognito   │           │
-│  │  (CDN)   │    │  Angular SPA  │    │  (auth)     │           │
-│  └──────────┘    └───────────────┘    └─────────────┘           │
+│  ┌──────────┐    ┌───────────────┐    ┌─────────────┐            │
+│  │CloudFront│───▶│  S3 (hosting) │    │   Cognito   │            │
+│  │  (CDN)   │    │  Angular SPA  │    │  (auth)     │            │
+│  └──────────┘    └───────────────┘    └─────────────┘            │
 │        │                                     │                   │
 │        ▼                                     ▼                   │
-│  ┌─────────────────────────────────────────────────────────┐     │
-│  │                  API Gateway (REST)                     │     │
-│  │  /users  /biometric  /timbrature  /stazioni  /requests  │     │
-│  └─────────────────────────────────────────────────────────┘     │
-│        │                                                         │
-│        ▼                                                         │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐      │
-│  │ Users  │ │Biometr.│ │Timbrat.│ │Stazioni│ │Requests  │      │
-│  │ Lambda │ │ Lambda │ │ Lambda │ │ Lambda │ │ Lambda   │      │
-│  └────────┘ └────────┘ └────────┘ └────────┘ └──────────┘      │
-│        │         │          │           │           │            │
-│        └─────────┴──────────┴───────────┴───────────┘           │
-│                                   │                              │
-│                                   ▼                              │
-│                  ┌─────────────────────────────┐                 │
-│                  │          DynamoDB            │                 │
-│                  │  WebAuthn │ Timbrature       │                 │
-│                  │  Stazioni │ Requests         │                 │
-│                  └─────────────────────────────┘                 │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                      API Gateway (REST)                       │  │
+│  │  /users  /biometric  /timbrature  /stazioni  /requests        │  │
+│  │  /contracts                                                   │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│        │                                                            │
+│        ▼                                                            │
+│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌───────┐ ┌──────────┐        │
+│  │Users │ │Biom. │ │Timbr.│ │Staz. │ │Reques.│ │Contracts │        │
+│  │Lmbd. │ │Lmbd. │ │Lmbd. │ │Lmbd. │ │ Lmbd. │ │  Lmbd.  │        │
+│  └──────┘ └──────┘ └──────┘ └──────┘ └───────┘ └──────────┘        │
+│       │       │        │        │         │           │            │
+│       └───────┴────────┴────────┴─────────┴───────────┘            │
+│                                   │                               │
+│                                   ▼                               │
+│              ┌────────────────────────────────────────┐           │
+│              │               DynamoDB                 │           │
+│              │  WebAuthn │ Timbrature │ Stazioni       │           │
+│              │  Requests │ Contracts                  │           │
+│              └────────────────────────────────────────┘           │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -87,8 +88,8 @@ Sistema di gestione presenze con autenticazione biometrica (WebAuthn/FIDO2), svi
 | **CloudFront + S3** | Hosting e distribuzione globale del frontend Angular |
 | **Cognito** | Gestione identità — registrazione, login, token JWT, WebAuthn nativo |
 | **API Gateway** | Unico punto di ingresso REST — autorizzazione Cognito o JWT custom |
-| **Lambda (×5)** | Logica applicativa serverless — users, biometric, timbrature, stazioni, requests |
-| **DynamoDB (×4)** | Persistenza — credenziali biometriche, timbrature, stazioni, richieste manuali |
+| **Lambda (×6)** | Logica applicativa serverless — users, biometric, timbrature, stazioni, requests, contracts |
+| **DynamoDB (×5)** | Persistenza — credenziali biometriche, timbrature, stazioni, richieste manuali, contratti |
 
 ---
 
@@ -107,7 +108,8 @@ timbratura/
 │   │       ├── timbrature-handler.ts  # Timbrature + dashboard
 │   │       ├── stations-handler.ts    # Stazioni + QR
 │   │       ├── users-handler.ts       # Gestione utenti Cognito
-│   │       └── requests-handler.ts    # Richieste di timbratura manuale
+│   │       ├── requests-handler.ts    # Richieste di timbratura manuale
+│   │       └── contracts-handler.ts   # Gestione contratti dipendenti
 │   └── package.json
 │
 ├── frontend/                   # Applicazione Angular 21
@@ -211,15 +213,18 @@ Il flusso in due fasi (anteprima → conferma) permette al dipendente di verific
 Quattro sezioni accessibili dalla sidebar:
 
 - **Dashboard** — riepilogo odierno: presenti per stazione, badge attiva/inattiva (stazione inattiva se non ha generato QR negli ultimi 6 minuti), lista timbrature del giorno
-- **Utenti** — lista con badge presenza in tempo reale, dettaglio con anagrafica completa, timbrature visualizzate per turno (entrata + uscita abbinate con durata), statistiche per periodo (ore lavorate, giorni lavorati, media giornaliera), modifica, eliminazione, export Excel con riepilogo statistico
+- **Utenti** — lista con badge presenza in tempo reale; dettaglio utente con sezioni collassabili (Dettagli e Contratto, default chiuse); anagrafica completa; gestione contratto con CRUD (tipo, date, ore settimanali, retribuzione lorda/netta, CCNL, ferie, permessi ROL, ecc.); timbrature visualizzate per turno (entrata + uscita abbinate con durata), statistiche per periodo (ore lavorate, giorni lavorati, media giornaliera); modifica, eliminazione; export Excel con 4 sezioni: anagrafica, dati contrattuali, analisi del periodo (ore attese vs lavorate, straordinari, stima stipendio) e tabella turni con colonna ore decimali
 - **Stazioni** — lista con stato, dettaglio (coordinate GPS, ultima attività), creazione (codice auto-generato `STZ-XXXXXX`), eliminazione
 - **Richieste** — lista richieste di timbratura manuale pendenti con badge contatore in sidebar; approvazione con modale di contesto (mostra le timbrature già presenti per quel giorno); rifiuto con motivo obbligatorio
 
 ### 5.8 Dashboard Employee
 
-- **Profilo** — anagrafica, stato presenza odierna (calcolato sull'ultima timbratura di oggi)
-- **Timbrature** — storico visualizzato per turno: ogni riga mostra Data / Entrata / Uscita / Durata / Sede; navigazione per mese/anno o anno intero; statistiche per periodo (ore lavorate, giorni lavorati, media giornaliera); export Excel con riepilogo statistico e tabella turni
-- **Richieste** — storico richieste inviate con stato (In attesa / Approvata / Rifiutata) e motivo del rifiuto; modale per inviare nuove richieste
+Pagina unica a scroll con sezioni collassabili:
+
+- **Dettagli utente** — (default chiuso) anagrafica, stato biometria, presenza odierna
+- **Il mio contratto** — (default chiuso) visualizzazione in sola lettura del contratto attivo: tipo, date, ore settimanali, retribuzione, CCNL, ferie, permessi ROL; messaggio se nessun contratto registrato
+- **Le mie richieste** — storico richieste inviate con stato (In attesa / Approvata / Rifiutata) e motivo del rifiuto; modale per inviare nuove richieste
+- **Le mie timbrature** — storico visualizzato per turno: ogni riga mostra Data / Entrata / Uscita / Durata / Sede; navigazione per mese/anno o anno intero; statistiche per periodo (ore lavorate, giorni lavorati, media giornaliera); export Excel con 4 sezioni: anagrafica, dati contrattuali, analisi del periodo (ore attese vs lavorate, straordinari, stima stipendio) e tabella turni con colonna ore decimali
 
 ### 5.9 Richieste di timbratura manuale
 
@@ -322,6 +327,31 @@ PK: `requestId` — GSI: `userId-index` su `userId` + `createdAt` — GSI: `stat
 | `approvataAt` | String | ISO 8601 — solo se approvata |
 | `motivoRifiuto` | String | Motivo del rifiuto — solo se rifiutata |
 
+### Contracts
+
+PK: `contractId` — GSI: `userId-index` su `userId` (SK: `dataInizio`, ordine decrescente)
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `contractId` | PK | UUID generato alla creazione |
+| `userId` | GSI | Username Cognito del dipendente |
+| `tipoContratto` | String | `indeterminato` / `determinato` / `apprendistato` / `stagionale` / `parttime` / `consulenza` |
+| `dataInizio` | String | YYYY-MM-DD — usato come SK nel GSI per ordinamento |
+| `dataFine` | String\|null | YYYY-MM-DD — assente o null per contratti a tempo indeterminato |
+| `oreSett` | Number\|null | Ore settimanali contrattuali — usate per calcolo straordinari nell'export |
+| `giorniSett` | Number\|null | Giorni settimanali (default 5) — usati per calcolo ore attese giornaliere |
+| `retribuzioneLorda` | Number\|null | Lordo mensile in € |
+| `retribuzioneNetta` | Number\|null | Netto mensile in € |
+| `livello` | String\|null | Livello contrattuale (es. B2, Primo livello) |
+| `mansione` | String\|null | Mansione svolta |
+| `ccnl` | String\|null | Contratto collettivo applicato |
+| `giorniFerie` | Number\|null | Giorni di ferie annuali spettanti |
+| `permessiOre` | Number\|null | Ore di permesso/ROL annuali |
+| `periodoDiProva` | Number\|null | Durata periodo di prova in mesi |
+| `note` | String\|null | Note libere |
+| `createdAt` | String | ISO 8601 |
+| `updatedAt` | String | ISO 8601 |
+
 ---
 
 ## 8. Rotte API
@@ -357,6 +387,11 @@ PK: `requestId` — GSI: `userId-index` su `userId` + `createdAt` — GSI: `stat
 | `/requests/me` | GET | Cognito | Richieste del dipendente loggato |
 | `/requests/{id}/approve` | POST | Cognito (manager) | Approva richiesta e inserisce la timbratura |
 | `/requests/{id}/reject` | POST | Cognito (manager) | Rifiuta richiesta con motivo obbligatorio |
+| `/contracts` | POST | Cognito (manager) | Crea contratto per un dipendente |
+| `/contracts` | GET | Cognito (manager) | Lista contratti di un dipendente (`?userId=`) |
+| `/contracts/me` | GET | Cognito | Contratti del dipendente loggato |
+| `/contracts/{id}` | PUT | Cognito (manager) | Modifica contratto |
+| `/contracts/{id}` | DELETE | Cognito (manager) | Elimina contratto |
 
 ---
 
@@ -364,7 +399,7 @@ PK: `requestId` — GSI: `userId-index` su `userId` + `createdAt` — GSI: `stat
 
 **Attributi standard:** `email` (required, immutabile), `given_name`, `family_name`, `birthdate`
 
-**Attributi custom:** `codice_fiscale`, `role`, `data_assunzione`, `termine_contratto`, `password_changed`, `biometrics_reg`
+**Attributi custom:** `codice_fiscale`, `role`, `password_changed`, `biometrics_reg`
 
 **Auth flows:** `USER_SRP`, `USER_PASSWORD`, `ADMIN_USER_PASSWORD`, `CUSTOM`, `USER_AUTH`
 
@@ -383,16 +418,19 @@ PK: `requestId` — GSI: `userId-index` su `userId` + `createdAt` — GSI: `stat
 ## 10. Deploy e comandi utili
 
 ```bash
-./deploy.sh              # deploy completo (infrastruttura + frontend)
-./deploy.sh frontend     # solo frontend (~30 secondi)
+./deploy.sh                  # deploy completo (infrastruttura + frontend) su prod
+./deploy.sh frontend         # solo frontend su prod (~30 secondi)
+./deploy.sh --dev            # deploy completo su dev
+./deploy.sh --dev frontend   # solo frontend su dev
+./deploy.sh --dev backend    # solo backend (CDK) su dev
 ```
 
 **Backend**
 ```bash
 cd backend
-npm run build       # compila TypeScript
-npx cdk diff        # mostra differenze rispetto allo stack deployato
-npx cdk synth       # genera il template CloudFormation senza deployare
+npm run build                           # compila TypeScript
+./node_modules/.bin/cdk diff            # mostra differenze rispetto allo stack deployato
+./node_modules/.bin/cdk synth           # genera il template CloudFormation senza deployare
 ```
 
 **Frontend**
@@ -428,9 +466,6 @@ Se la stazione ha coordinate GPS configurate, il dipendente deve avere il GPS at
 
 ## 12. Sviluppi futuri
 
-### Gestione orari e contratti
-Aggiungere il concetto di orario previsto per dipendente/reparto — necessario per calcolare straordinari, ore mancanti e confrontare pianificato vs effettivo.
-
 ### Gestione assenze
 Ferie, permessi, malattia, festività — oggi un giorno senza timbrature è semplicemente vuoto.
 
@@ -439,6 +474,32 @@ Avvisi automatici: richiesta approvata/rifiutata via email al dipendente; entrat
 
 ### Storico richieste per il manager
 Le richieste scompaiono dalla lista pendenti una volta gestite. Aggiungere una vista storico (approvate + rifiutate) filtrabile per dipendente e periodo.
+
+### Export avanzati
+- Export PDF firmato digitalmente delle timbrature (valore legale)
+- Export per cedolini paga (formato UNIEMENS o similare)
+- Scheduling automatico degli export con invio email mensile
+- L'export Excel attuale include anagrafica, dati contrattuali, analisi del periodo (ore attese/lavorate, straordinari, stima stipendio) e tabella turni con ore decimali; i festivi non sono ancora dedotti dal conteggio giorni lavorativi attesi
+
+### Audit trail completo
+Tabella DynamoDB separata AuditLog che traccia:
+- Chi ha creato/modificato/eliminato un utente
+- Chi ha approvato/rifiutato una richiesta
+- Cambiamenti di ruolo
+- Accessi falliti (tentativi di brute force)
+- Modifiche alle stazioni
+
+### Modalità offline per la stazione
+La stazione dovrebbe poter funzionare anche senza connessione Internet, salvando i QR generati localmente e sincronizzando quando torna online (con timestamp verificati crittograficamente).
+
+### Turni notturni
+La logica attuale determina entrata/uscita guardando solo le timbrature del giorno corrente — ogni giorno riparte da zero. Questo causa problemi con turni a cavallo della mezzanotte (es. entrata alle 22:00, uscita alle 06:00 del giorno dopo). Servirebbe una logica che consideri l'ultimo stato indipendentemente dalla data.
+
+### Webhook per eventi
+Notifiche push verso endpoint configurati dal cliente quando:
+- Una timbratura viene registrata
+- Una richiesta manuale viene approvata/rifiutata
+- Un dipendente supera X ore di straordinario
 
 ### Produzione
 - Migrare l'invio email da `COGNITO_DEFAULT` (50/giorno) a **SES production** per volumi elevati

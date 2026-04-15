@@ -48,6 +48,13 @@ export class ApiService {
   getStazioneQr(): Observable<{ qrUrl: string; expiresAt: number; presenti: number; lat: number | null; lng: number | null; ultimaTimbratura: any | null }> { return this.http.get<any>(`${this.apiUrl}/stazioni/me/qr`); }
   updateStazionePosition(lat: number, lng: number): Observable<any> { return this.http.post(`${this.apiUrl}/stazioni/me/position`, { lat, lng }); }
 
+  // --- Contracts ---
+  getContracts(userId: string): Observable<any>              { return this.http.get(`${this.apiUrl}/contracts?userId=${userId}`); }
+  getMyContracts(): Observable<any>                          { return this.http.get(`${this.apiUrl}/contracts/me`); }
+  createContract(data: any): Observable<any>                 { return this.http.post(`${this.apiUrl}/contracts`, data); }
+  updateContract(id: string, data: any): Observable<any>     { return this.http.put(`${this.apiUrl}/contracts/${id}`, data); }
+  deleteContract(id: string): Observable<any>                { return this.http.delete(`${this.apiUrl}/contracts/${id}`); }
+
   // --- Stazioni CRUD (Cognito manager) ---
   getStazioni(): Observable<any>              { return this.http.get(`${this.apiUrl}/stazioni`); }
   getStazione(id: string): Observable<any>    { return this.http.get(`${this.apiUrl}/stazioni/${id}`); }

@@ -71,8 +71,6 @@ async function createEmployee(event: APIGatewayProxyEvent) {
   const cognome         = raw.cognome;
   const birthdate       = raw.birthdate;
   const codice_fiscale  = raw.codice_fiscale?.trim().toUpperCase();
-  const data_assunzione = raw.data_assunzione;
-  const termine_contratto = raw.termine_contratto;
   const ruolo           = raw.ruolo;
 
   if (!email || !nome || !cognome) {
@@ -96,8 +94,6 @@ async function createEmployee(event: APIGatewayProxyEvent) {
         { Name: 'email_verified',           Value: 'true' },
         { Name: 'birthdate',                Value: birthdate         ?? '' },
         { Name: 'custom:codice_fiscale',    Value: codice_fiscale    ?? '' },
-        { Name: 'custom:data_assunzione',   Value: data_assunzione   ?? '' },
-        { Name: 'custom:termine_contratto', Value: termine_contratto ?? '' },
         { Name: 'custom:password_changed',  Value: 'false' },
         { Name: 'custom:biometrics_reg',    Value: 'false' },
       ],
@@ -153,8 +149,6 @@ async function updateEmployee(userId: string, event: APIGatewayProxyEvent) {
   const cognome           = raw.cognome;
   const birthdate         = raw.birthdate;
   const codice_fiscale    = raw.codice_fiscale?.trim().toUpperCase();
-  const data_assunzione   = raw.data_assunzione;
-  const termine_contratto = raw.termine_contratto;
 
   try {
     await cognitoClient.send(new AdminUpdateUserAttributesCommand({
@@ -165,8 +159,6 @@ async function updateEmployee(userId: string, event: APIGatewayProxyEvent) {
         { Name: 'family_name',              Value: cognome           ?? '' },
         { Name: 'birthdate',                Value: birthdate         ?? '' },
         { Name: 'custom:codice_fiscale',    Value: codice_fiscale    ?? '' },
-        { Name: 'custom:data_assunzione',   Value: data_assunzione   ?? '' },
-        { Name: 'custom:termine_contratto', Value: termine_contratto ?? '' },
       ],
     }));
     return json(200, { message: 'Dipendente aggiornato' });

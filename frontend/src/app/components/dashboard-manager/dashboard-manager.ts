@@ -1,6 +1,6 @@
 import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { NgTemplateOutlet, TitleCasePipe } from '@angular/common';
+import { NgTemplateOutlet, TitleCasePipe, DecimalPipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/user-auth.service';
 
@@ -8,7 +8,7 @@ type Section = 'dashboard' | 'utenti' | 'stazioni' | 'richieste';
 
 @Component({
   selector: 'app-dashboard-manager',
-  imports: [FormsModule, NgTemplateOutlet, TitleCasePipe],
+  imports: [FormsModule, NgTemplateOutlet, TitleCasePipe, DecimalPipe],
   templateUrl: './dashboard-manager.html',
   styleUrl: '../../app.css',
 })
@@ -30,7 +30,7 @@ export class DashboardManager implements OnInit {
 
   showModal  = false;
   modalError: string | null = null;
-  newUser    = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', data_assunzione: '', termine_contratto: '', ruolo: 'employee' };
+  newUser    = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', ruolo: 'employee' };
 
   showEditModal     = false;
   editUser: any     = {};
@@ -61,6 +61,18 @@ export class DashboardManager implements OnInit {
   stazioneModalError: string | null = null;
   stazioneToDelete:   any   = null;
   showDeleteStazioneConfirm = false;
+
+  // ─── Contratti ────────────────────────────────────────────────────────────
+  contratti:              any[] = [];
+  contrattiLoading              = false;
+  dettagliUtenteOpen            = false;
+  contrattoOpen                 = false;
+  showContrattoModal            = false;
+  contrattoModalError: string | null = null;
+  newContratto: any             = {};
+  showEditContrattoModal        = false;
+  editContratto: any            = {};
+  editContrattoId               = '';
 
   // ─── Timbrature ───────────────────────────────────────────────────────────
   timbrature:    any[]  = [];
@@ -147,16 +159,23 @@ export class DashboardManager implements OnInit {
         this.selectedUser = data;
         this.resetPeriodoTimbrature();
         this.loadTimbrature(data.id);
+        this.loadContratti(data.id);
         this.cdr.detectChanges();
       },
       error: (err) => console.error('Errore caricamento utente:', err),
     });
   }
 
-  backToList() { this.selectedUser = null; this.timbrature = []; }
+  backToList() {
+    this.selectedUser       = null;
+    this.timbrature         = [];
+    this.contratti          = [];
+    this.dettagliUtenteOpen = false;
+    this.contrattoOpen      = false;
+  }
 
   openModal() {
-    this.newUser    = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', data_assunzione: '', termine_contratto: '', ruolo: 'employee' };
+    this.newUser    = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', ruolo: 'employee' };
     this.modalError = null;
     this.showModal  = true;
   }
@@ -173,12 +192,10 @@ export class DashboardManager implements OnInit {
 
   openEditModal() {
     this.editUser = {
-      nome:              this.selectedUser.given_name,
-      cognome:           this.selectedUser.family_name,
-      birthdate:         this.selectedUser.birthdate         ?? '',
-      codice_fiscale:    this.selectedUser.codice_fiscale    ?? '',
-      data_assunzione:   this.selectedUser.data_assunzione   ?? '',
-      termine_contratto: this.selectedUser.termine_contratto ?? '',
+      nome:           this.selectedUser.given_name,
+      cognome:        this.selectedUser.family_name,
+      birthdate:      this.selectedUser.birthdate      ?? '',
+      codice_fiscale: this.selectedUser.codice_fiscale ?? '',
     };
     this.showEditModal = true;
   }
@@ -202,6 +219,105 @@ export class DashboardManager implements OnInit {
       },
       error: (err) => console.error('Errore eliminazione utente:', err),
     });
+  }
+
+
+  // ─── Contratti ────────────────────────────────────────────────────────────
+
+  loadContratti(userId: string) {
+    this.contrattiLoading = true;
+    this.contratti        = [];
+    this.apiService.getContracts(userId).subscribe({
+      next: (data) => { this.contratti = data; this.contrattiLoading = false; this.cdr.detectChanges(); },
+      error: (err)  => { console.error('Errore contratti:', err); this.contrattiLoading = false; this.cdr.detectChanges(); },
+    });
+  }
+
+  get contrattoAttivo(): any | null { return this.contratti[0] ?? null; }
+
+  openNuovoContrattoModal() {
+    this.newContratto        = { userId: this.selectedUser.id, tipoContratto: 'indeterminato', dataInizio: '' };
+    this.contrattoModalError = null;
+    this.showContrattoModal  = true;
+  }
+
+  closeContrattoModal() { this.showContrattoModal = false; this.contrattoModalError = null; }
+
+  onTipoContrattoChange(c: any) {
+    if (c.tipoContratto === 'indeterminato') delete c.dataFine;
+  }
+
+  private validateContratto(c: any): string | null {
+    if (!c.dataInizio) return 'La data di inizio è obbligatoria';
+    if (c.tipoContratto !== 'indeterminato' && c.dataFine && c.dataFine < c.dataInizio)
+      return 'La data di fine deve essere successiva alla data di inizio';
+    if (c.oreSett != null && c.oreSett !== '') {
+      const v = Number(c.oreSett);
+      if (v <= 0 || v > 80) return 'Le ore settimanali devono essere tra 1 e 80';
+    }
+    if (c.giorniSett != null && c.giorniSett !== '') {
+      const v = Number(c.giorniSett);
+      if (v < 1 || v > 7 || !Number.isInteger(v)) return 'I giorni settimanali devono essere tra 1 e 7';
+    }
+    if (c.retribuzioneLorda != null && c.retribuzioneLorda !== '') {
+      if (Number(c.retribuzioneLorda) <= 0) return 'La retribuzione lorda deve essere maggiore di zero';
+    }
+    if (c.retribuzioneNetta != null && c.retribuzioneNetta !== '') {
+      if (Number(c.retribuzioneNetta) <= 0) return 'La retribuzione netta deve essere maggiore di zero';
+      if (c.retribuzioneLorda != null && c.retribuzioneLorda !== '' && Number(c.retribuzioneNetta) > Number(c.retribuzioneLorda))
+        return 'La retribuzione netta non può superare quella lorda';
+    }
+    if (c.periodoDiProva != null && c.periodoDiProva !== '') {
+      const v = Number(c.periodoDiProva);
+      if (v < 0 || v > 24) return 'Il periodo di prova deve essere tra 0 e 24 mesi';
+    }
+    if (c.giorniFerie != null && c.giorniFerie !== '') {
+      const v = Number(c.giorniFerie);
+      if (v < 0 || v > 365) return 'I giorni di ferie devono essere tra 0 e 365';
+    }
+    if (c.permessiOre != null && c.permessiOre !== '') {
+      if (Number(c.permessiOre) < 0) return 'Le ore di permesso non possono essere negative';
+    }
+    return null;
+  }
+
+  salvaContratto() {
+    const err = this.validateContratto(this.newContratto);
+    if (err) { this.contrattoModalError = err; return; }
+    this.contrattoModalError = null;
+    this.apiService.createContract(this.newContratto).subscribe({
+      next: () => { this.closeContrattoModal(); this.loadContratti(this.selectedUser.id); },
+      error: (err) => { this.contrattoModalError = err.error?.message ?? 'Errore durante la creazione'; this.cdr.detectChanges(); },
+    });
+  }
+
+  openEditContrattoModal(c: any) {
+    this.editContrattoId     = c.contractId;
+    this.editContratto       = { ...c };
+    this.contrattoModalError = null;
+    this.showEditContrattoModal = true;
+  }
+
+  salvaModificaContratto() {
+    const err = this.validateContratto(this.editContratto);
+    if (err) { this.contrattoModalError = err; return; }
+    this.contrattoModalError = null;
+    const { contractId, userId, createdAt, ...payload } = this.editContratto;
+    this.apiService.updateContract(this.editContrattoId, payload).subscribe({
+      next: () => { this.showEditContrattoModal = false; this.loadContratti(this.selectedUser.id); },
+      error: (err) => { this.contrattoModalError = err.error?.message ?? 'Errore durante la modifica'; this.cdr.detectChanges(); },
+    });
+  }
+
+  eliminaContratto(contractId: string) {
+    this.apiService.deleteContract(contractId).subscribe({
+      next: () => this.loadContratti(this.selectedUser.id),
+      error: (err) => console.error('Errore eliminazione contratto:', err),
+    });
+  }
+
+  tipoContrattoLabel(tipo: string): string {
+    return { indeterminato: 'Indeterminato', determinato: 'Determinato', part_time: 'Part-time', apprendistato: 'Apprendistato', stage: 'Stage' }[tipo] ?? tipo;
   }
 
 
@@ -471,25 +587,87 @@ export class DashboardManager implements OnInit {
   scaricaTimbratureExcel() {
     if (this.timbrature.length === 0) return;
 
-    const nomeUtente = `${this.selectedUser?.given_name ?? ''} ${this.selectedUser?.family_name ?? ''}`.trim();
+    const u    = this.selectedUser;
+    const c    = this.contrattoAttivo;
+    const nome = `${u?.given_name ?? ''} ${u?.family_name ?? ''}`.trim();
     const mm   = this.meseSelezionato ? `-${String(this.meseSelezionato).padStart(2, '0')}` : '-annuale';
-    const slug = nomeUtente.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const slug = nome.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const e    = (v: string) => this.escapeCsv(v);
 
-    const riepilogo = [
-      ['Dipendente',      this.escapeCsv(nomeUtente)],
-      ['Periodo',         this.escapeCsv(this.periodoLabel)],
-      ['Ore lavorate',    this.escapeCsv(this.oreLavorate)],
-      ['Giorni lavorati', this.escapeCsv(String(this.giorniLavorati))],
-      ['Media giornaliera', this.escapeCsv(this.mediaGiornaliera)],
-      [],
-    ].map(r => r.join(';'));
+    const sezioni: string[] = [];
 
-    const intestazione = ['Data', 'Entrata', 'Uscita', 'Durata', 'Sede'];
-    const righe = this.turni.map(t =>
-      [t.data, t.entrata, t.uscita ?? '—', t.durata ?? '—', t.sede].map(v => this.escapeCsv(v))
+    // ── ANAGRAFICA ────────────────────────────────────────────────────────────
+    sezioni.push(
+      [e('=== ANAGRAFICA ==='), ''].join(';'),
+      [e('Dipendente'),    e(nome)].join(';'),
+      ...(u?.email          ? [[e('Email'),          e(u.email)].join(';')]          : []),
+      ...(u?.codice_fiscale ? [[e('Codice fiscale'),  e(u.codice_fiscale)].join(';')] : []),
+      '',
     );
 
-    const csv  = ['\ufeff' + riepilogo.join('\n'), intestazione.join(';'), ...righe.map(r => r.join(';'))].join('\n');
+    // ── CONTRATTO ─────────────────────────────────────────────────────────────
+    if (c) {
+      const tl = (t: string) => ({ indeterminato: 'Indeterminato', determinato: 'Determinato', part_time: 'Part-time', apprendistato: 'Apprendistato', stage: 'Stage' }[t] ?? t);
+      sezioni.push(
+        [e('=== CONTRATTO ==='), ''].join(';'),
+        [e('Tipo'),        e(tl(c.tipoContratto))].join(';'),
+        [e('Data inizio'), e(c.dataInizio)].join(';'),
+        [e('Data fine'),   e(c.dataFine || '—')].join(';'),
+        ...(c.oreSett            ? [[e('Ore sett.'),       e(`${c.oreSett}h`)].join(';')]                  : []),
+        ...(c.giorniSett         ? [[e('Giorni sett.'),    e(String(c.giorniSett))].join(';')]              : []),
+        ...(c.retribuzioneLorda  ? [[e('Lordo mensile'),   e(`${c.retribuzioneLorda.toLocaleString('it-IT')} €`)].join(';')]  : []),
+        ...(c.retribuzioneNetta  ? [[e('Netto mensile'),   e(`${c.retribuzioneNetta.toLocaleString('it-IT')} €`)].join(';')]  : []),
+        ...(c.livello            ? [[e('Livello'),         e(c.livello)].join(';')]                         : []),
+        ...(c.mansione           ? [[e('Mansione'),        e(c.mansione)].join(';')]                        : []),
+        ...(c.ccnl               ? [[e('CCNL'),            e(c.ccnl)].join(';')]                            : []),
+        ...(c.giorniFerie        ? [[e('Ferie annuali'),   e(`${c.giorniFerie} gg`)].join(';')]             : []),
+        ...(c.permessiOre        ? [[e('Permessi ROL'),    e(`${c.permessiOre}h`)].join(';')]               : []),
+        '',
+      );
+    }
+
+    // ── ANALISI PERIODO ───────────────────────────────────────────────────────
+    if (c?.oreSett) {
+      const minutiLavorati     = this.calcolaMinutiLavorati(this.timbrature);
+      const giorniLavAtt       = this.countWorkingDays(this.annoSelezionato, this.meseSelezionato);
+      const orePerGiorno       = c.oreSett / (c.giorniSett ?? 5);
+      const minutiAttesi       = Math.round(giorniLavAtt * orePerGiorno * 60);
+      const minutiStraord      = Math.max(0, minutiLavorati - minutiAttesi);
+      const minutiMancanti     = Math.max(0, minutiAttesi - minutiLavorati);
+      const retribOraria       = c.retribuzioneLorda ? c.retribuzioneLorda / (c.oreSett * 52 / 12) : null;
+      const importoStraord     = retribOraria ? (minutiStraord / 60) * retribOraria : null;
+
+      sezioni.push(
+        [e('=== ANALISI PERIODO ==='), ''].join(';'),
+        [e('Periodo'),                     e(this.periodoLabel)].join(';'),
+        [e('Giorni lavorativi attesi'),    e(String(giorniLavAtt))].join(';'),
+        [e('Ore contrattuali attese'),     e(this.formatDurata(minutiAttesi))].join(';'),
+        [e('Ore effettivamente lavorate'), e(this.formatDurata(minutiLavorati))].join(';'),
+        [e('Ore straordinarie'),           e(minutiStraord > 0 ? this.formatDurata(minutiStraord) : '—')].join(';'),
+        [e('Ore mancanti'),                e(minutiMancanti > 0 ? this.formatDurata(minutiMancanti) : '—')].join(';'),
+        ...(retribOraria             ? [[e('Retribuzione oraria lorda'),   e(`${retribOraria.toFixed(2).replace('.', ',')} €`)].join(';')]              : []),
+        ...(c.retribuzioneNetta && this.meseSelezionato != null ? [[e('Stipendio base netto'), e(`${c.retribuzioneNetta.toLocaleString('it-IT')} €`)].join(';')] : []),
+        ...(importoStraord != null && minutiStraord > 0 ? [[e('Importo straordinari lordo (indicativo)'), e(`${importoStraord.toFixed(2).replace('.', ',')} €`)].join(';')] : []),
+        [e('* I festivi non sono inclusi nel conteggio dei giorni lavorativi'), ''].join(';'),
+        '',
+      );
+    }
+
+    // ── TURNI ─────────────────────────────────────────────────────────────────
+    sezioni.push(
+      [e('=== TURNI ==='), ''].join(';'),
+      ['Data', 'Entrata', 'Uscita', 'Durata', 'Ore decimali', 'Sede'].map(e).join(';'),
+      ...this.turni.map(t => [
+        t.data,
+        t.entrata,
+        t.uscita ?? '—',
+        t.durata ?? '—',
+        this.durataToDecimal(t.durata),
+        t.sede,
+      ].map(v => e(v)).join(';')),
+    );
+
+    const csv  = '\ufeff' + sezioni.join('\n');
     const blob = new Blob([csv], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const link = document.createElement('a');
     link.href  = URL.createObjectURL(blob);
@@ -525,6 +703,28 @@ export class DashboardManager implements OnInit {
     const h = Math.floor(minuti / 60);
     const m = minuti % 60;
     return h > 0 ? `${h}h ${m}min` : `${m}min`;
+  }
+
+  private durataToDecimal(durata: string | null): string {
+    if (!durata) return '';
+    const h = durata.match(/(\d+)h/);
+    const m = durata.match(/(\d+)min/);
+    const tot = (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0);
+    return (tot / 60).toFixed(2).replace('.', ',');
+  }
+
+  private countWorkingDays(anno: number, mese: number | null): number {
+    if (mese == null) {
+      return Array.from({ length: 12 }, (_, i) => this.countWorkingDays(anno, i + 1))
+                  .reduce((a, b) => a + b, 0);
+    }
+    let count = 0;
+    const days = new Date(anno, mese, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+      const dow = new Date(anno, mese - 1, d).getDay();
+      if (dow !== 0 && dow !== 6) count++;
+    }
+    return count;
   }
 
   private escapeCsv(value: string): string {
