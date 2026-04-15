@@ -27,12 +27,15 @@
       <h2 style="margin-bottom: 4px; text-transform: capitalize;">{{ tipo }}</h2>
       <p style="color: #666; font-size: 14px; margin-bottom: 4px;">{{ nome }} {{ cognome }}</p>
       @if (durataMinuti != null) {
-        <p style="color: #333; font-size: 15px; font-weight: 600; margin-bottom: 28px;">
+        <p style="color: #333; font-size: 15px; font-weight: 600; margin-bottom: 8px;">
           Durata: {{ durataLabel }}
         </p>
       } @else {
-        <p style="margin-bottom: 28px;"></p>
+        <p style="margin-bottom: 8px;"></p>
       }
+      <button class="btn-forgot" style="margin-bottom: 20px;" (click)="toggleTipo()">
+        Non è corretto? Cambia in <strong>{{ tipo === 'entrata' ? 'uscita' : 'entrata' }}</strong>
+      </button>
       @if (errore) { <p class="modal-error">{{ errore }}</p> }
       <button
         class="btn-login"

@@ -195,18 +195,18 @@ Il dipendente scansiona il QR con il proprio telefono:
       - Verifica firma HMAC del QR
       - Verifica assertion biometrica → identifica il dipendente
       - Verifica posizione GPS (entro 200m dalla stazione)
-      - Calcola tipo: entrata/uscita in base all'ultima timbratura di oggi
+      - Calcola tipo: entrata/uscita in base all'ultima timbratura assoluta (vedi logica sotto)
       - Salva stazioneDescrizione nel record per evitare join futuri
       - Salva pending-entry (TTL 5 min)
       - Risponde con: tipo, nome, cognome
-6. Dipendente vede l'anteprima e conferma
-7. POST /timbrature/conferma → timbratura salvata definitivamente
+6. Dipendente vede l'anteprima con il tipo calcolato — può correggerlo se sbagliato
+7. POST /timbrature/conferma → timbratura salvata definitivamente con il tipo scelto
 8. Schermata di conferma con esito (successo o errore) e pulsante:
       - Se loggato → vai alla dashboard (manager o employee)
       - Se non loggato → torna al login
 ```
 
-Il flusso in due fasi (anteprima → conferma) permette al dipendente di verificare i dati prima che vengano registrati. Il tipo (entrata/uscita) è calcolato solo sulle timbrature **del giorno corrente** — ogni giorno riparte da zero indipendentemente dal giorno precedente.
+Il flusso in due fasi (anteprima → conferma) permette al dipendente di verificare i dati prima che vengano registrati. Nella schermata di anteprima è presente un link _"Non è corretto? Cambia in uscita/entrata"_ che permette di correggere manualmente il tipo prima della conferma.
 
 ### 5.7 Dashboard Manager
 
@@ -450,8 +450,20 @@ Cognito WebAuthn nativo richiede che l'utente sia già identificato (username ob
 **Struttura a due fasi della timbratura (anteprima → conferma)**
 La timbratura non viene salvata immediatamente dopo la verifica biometrica ma in una pending-entry temporanea. Il dipendente vede il riepilogo (tipo, nome, cognome) e conferma esplicitamente. Questo previene errori involontari e permette di mostrare all'utente cosa sta per registrare.
 
-**Tipo entrata/uscita calcolato per giorno corrente**
-Il sistema determina se la prossima timbratura è un'entrata o un'uscita guardando solo le timbrature del giorno corrente. Ogni giorno riparte da zero — un'entrata non chiusa del giorno precedente non influenza il giorno successivo. Le timbrature dimenticate si gestiscono tramite le richieste manuali.
+**Tipo entrata/uscita — logica di calcolo**
+Il sistema determina il tipo guardando l'**ultima timbratura in assoluto** dell'utente (non solo quella del giorno corrente) e applicando questa logica:
+
+| Condizione | Tipo calcolato |
+|---|---|
+| Nessuna timbratura precedente | Entrata |
+| Ultima era un'uscita | Entrata |
+| Ultima era un'entrata da meno di 20 ore | Uscita (turno in corso) |
+| Ultima era un'entrata da 20 ore o più | Entrata (uscita dimenticata — nuovo turno) |
+
+Questo approccio gestisce correttamente i **turni notturni** (entrata 22:00, uscita 06:00 del giorno dopo: gap di 8h < 20h → uscita) e le **pause pranzo** (uscita 13:00, rientro 14:00: l'ultima è un'uscita → entrata). In caso di uscita dimenticata, dopo 20 ore il sistema tratta automaticamente la prossima timbratura come nuova entrata. In ogni caso il dipendente può correggere manualmente il tipo nella schermata di anteprima prima di confermare.
+
+**Presenti in dashboard con turni notturni**
+Il conteggio "presenti ora" considera le timbrature di oggi e di ieri. Per ogni dipendente viene presa l'ultima timbratura assoluta tra i due giorni: se è un'entrata, il dipendente è contato come presente. Questo copre il caso del turno notturno (entrata 22:00, uscita 06:00): fino all'uscita il dipendente appare correttamente come presente anche se la sua timbratura di entrata ha `data = giorno precedente`.
 
 **Visualizzazione per turni**
 Le timbrature non vengono mostrate come eventi singoli ma abbinate in turni (entrata + uscita) con durata calcolata. Più turni nello stesso giorno (es. pausa pranzo) generano righe separate. Un'entrata senza uscita mostra il turno come aperto.
@@ -467,7 +479,43 @@ Se la stazione ha coordinate GPS configurate, il dipendente deve avere il GPS at
 ## 12. Sviluppi futuri
 
 ### Gestione assenze
-Ferie, permessi, malattia, festività — oggi un giorno senza timbrature è semplicemente vuoto.
+Oggi un giorno senza timbrature è semplicemente vuoto — il sistema non distingue tra assenza ingiustificata, ferie, malattia o festività. Questo gonfia le "ore mancanti" nell'export Excel e non permette al manager di capire lo stato reale della presenza.
+
+**Modello dati — tabella `Assenze`**
+```
+PK: assenzaId (UUID)
+GSI: userId-index → userId (PK) + dataInizio (SK)
+
+Campi: userId, tipo, dataInizio, dataFine, ore (per permessi parziali),
+       nota, stato (approvata/pendente/rifiutata), approvataDa, createdAt
+```
+I tipi previsti: `ferie` | `permesso` | `malattia` | `festività` | `altro`. Il range `dataInizio/dataFine` gestisce sia i giorni singoli che i periodi multi-giorno.
+
+**Festività**
+Tabella separata `Festività` con `data` + `descrizione`, configurata dal manager una volta all'anno (festività nazionali + locali). Non è per dipendente — vale globalmente per tutti.
+
+**Flussi per tipo**
+
+| Tipo | Chi crea | Approvazione |
+|---|---|---|
+| Ferie / Permesso / ROL | Dipendente richiede | Manager approva |
+| Malattia | Manager inserisce | Automaticamente approvata |
+| Festività | Manager configura calendario | N/A — globale |
+
+**Impatto sull'export Excel**
+Con le assenze, la sezione "Analisi periodo" diventa precisa:
+```
+Giorni lavorativi attesi:     23
+  di cui festività:            1
+  di cui ferie/permessi:       5
+Giorni effettivamente dovuti: 17   ← attesi - giustificati
+Ore contrattuali dovute:     136h  ← solo i giorni dovuti
+Ore lavorate:                138h
+Ore straordinarie:             2h  ← rispetto ai giorni dovuti
+```
+Senza questo, una settimana di ferie appare come 40h di assenza ingiustificata.
+
+**Complessità per fase:** CRUD assenze e visualizzazione dashboard = semplice. Integrazione nel calcolo Excel = medio. Permessi parziali in ore con sovrapposizione sulle timbrature dello stesso giorno = complesso.
 
 ### Notifiche
 Avvisi automatici: richiesta approvata/rifiutata via email al dipendente; entrata non registrata oltre l'orario previsto; uscita dimenticata a fine turno.
@@ -490,10 +538,36 @@ Tabella DynamoDB separata AuditLog che traccia:
 - Modifiche alle stazioni
 
 ### Modalità offline per la stazione
-La stazione dovrebbe poter funzionare anche senza connessione Internet, salvando i QR generati localmente e sincronizzando quando torna online (con timestamp verificati crittograficamente).
+Il flusso di timbratura richiede connettività per la verifica biometrica (chiave pubblica in DynamoDB), la firma HMAC del QR (JWT_SECRET server-side) e il salvataggio della timbratura. Quattro approcci possibili:
 
-### Turni notturni
-La logica attuale determina entrata/uscita guardando solo le timbrature del giorno corrente — ogni giorno riparte da zero. Questo causa problemi con turni a cavallo della mezzanotte (es. entrata alle 22:00, uscita alle 06:00 del giorno dopo). Servirebbe una logica che consideri l'ultimo stato indipendentemente dalla data.
+**Opzione 1 — Batch prefetch (consigliata per offline breve)**
+La stazione, mentre è online, chiama un endpoint `GET /stazioni/me/qr?batch=N` che restituisce N token pre-firmati, ciascuno con il proprio `expiresAt` progressivo. La stazione li usa in ordine offline. 500 token × 3 minuti = ~25 ore di copertura. La verifica backend non cambia. Rischio: se la stazione è compromessa, l'attaccante ottiene tutti i token ancora validi — rischio già implicito nell'architettura attuale con token singolo.
+
+**Opzione 2 — Crittografia asimmetrica (consigliata per offline strutturale)**
+Ogni stazione ha una coppia di chiavi generata al momento della creazione: la chiave privata rimane sul dispositivo e non esce mai, la pubblica viene registrata in DynamoDB. Offline, la stazione firma i QR autonomamente con la propria chiave privata. Il backend verifica con la chiave pubblica. La compromissione di una stazione non impatta le altre. Richiede: cambio del formato token QR, procedura di provisioning al setup, gestione revoca.
+
+**Opzione 3 — Sincronizzazione postuma**
+Non risolve il problema del QR — senza connessione la stazione non può mostrare un token valido. Utile solo per il caso in cui la connessione cada a metà di una timbratura già avviata.
+
+**Opzione 4 — Secret derivato per stazione**
+Secret per stazione derivato da un master secret tramite KDF: `HMAC(masterSecret, stationId)`. Isola la compromissione per stazione, ma il master secret rimane un singolo punto di fallimento. Aggiunge complessità rispetto all'Opzione 1 senza vantaggi concreti rispetto all'Opzione 2.
+
+| Scenario | Scelta |
+|---|---|
+| Disconnessioni brevi (minuti/ore), ufficio o negozio | Opzione 1 — batch prefetch |
+| Offline strutturale (cantiere, nave, zona senza rete) | Opzione 2 — asimmetrica |
+| Non si vuole toccare il backend | SIM/4G come connessione di failover sul dispositivo stazione |
+
+### Gestione turni (Scheduling)
+La logica attuale determina entrata/uscita guardando l'ultima timbratura assoluta con una soglia di 20 ore (turno notturno coperto; uscita dimenticata da >20h = nuovo turno). Per aziende con turni a rotazione formalizzati (fabbrica, ospedale, sicurezza) sarebbe utile un sistema di turni esplicito:
+
+- **Template turni:** definire finestre ricorrenti (es. Mattina 06:00–14:00, Pomeriggio 14:00–22:00, Notte 22:00–06:00)
+- **Assegnazione dipendente:** ogni dipendente ha un turno attivo (o una rotazione settimanale/mensile)
+- **Logica basata sul turno:** il sistema determina entrata/uscita in base alla finestra attiva del dipendente, indipendentemente dalla soglia temporale
+- **Validazione orari:** avviso se si timbra fuori dalla finestra prevista (es. 2h prima dell'inizio turno)
+- **Presenze previste vs reali:** il manager vede chi doveva essere presente ma non ha timbrato
+
+Prerequisiti: nuova tabella DynamoDB `Turni`, UI di gestione template e assegnazione in dashboard manager, aggiornamento della logica in `timbrature-handler.ts`.
 
 ### Webhook per eventi
 Notifiche push verso endpoint configurati dal cliente quando:

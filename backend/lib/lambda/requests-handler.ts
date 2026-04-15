@@ -109,19 +109,24 @@ async function approvaRequest(requestId: string, claims: any) {
   if (!item) return json(404, 'Richiesta non trovata');
   if (item.stato !== 'pendente') return json(409, 'Richiesta già processata');
 
-  // Verifica che il tipo richiesto sia coerente con l'ultima timbratura del dipendente per quella data
+  // Calcola il timestamp UTC della timbratura richiesta (usato sia per la query che per il salvataggio)
+  const timestamp = oraLocaleToIsoUtc(item.data, item.ora);
+
+  // Verifica che il tipo sia coerente con l'ultima timbratura PRIMA dell'orario richiesto.
+  // Usa il timestamp calcolato come limite superiore per gestire correttamente le timbrature
+  // inserite nel passato quando esistono già eventi successivi nello stesso giorno.
   const ultimaResult = await dynamo.send(new QueryCommand({
     TableName:              TIMBRATURE_TABLE,
-    KeyConditionExpression: 'userId = :uid AND begins_with(#ts, :data)',
+    KeyConditionExpression: 'userId = :uid AND #ts < :ts',
     ExpressionAttributeNames:  { '#ts': 'timestamp' },
-    ExpressionAttributeValues: marshall({ ':uid': item.userId, ':data': item.data }),
+    ExpressionAttributeValues: marshall({ ':uid': item.userId, ':ts': timestamp }),
     ScanIndexForward: false,
     Limit: 1,
   }));
   const ultima = ultimaResult.Items?.[0] ? unmarshall(ultimaResult.Items[0]) : null;
   const tipoAtteso = (!ultima || ultima.tipo === 'uscita') ? 'entrata' : 'uscita';
   if (item.tipo !== tipoAtteso)
-    return json(409, `Tipo non coerente: per questo dipendente la prossima timbratura del ${item.data} deve essere una ${tipoAtteso}`);
+    return json(409, `Tipo non coerente: prima di questo orario l'ultima timbratura è una ${ultima?.tipo ?? '—'}, quindi la successiva deve essere una ${tipoAtteso}`);
 
   // Recupera nome e cognome per salvarlo nella timbratura (evita join successivi)
   let nome = '', cognome = '';
@@ -131,8 +136,6 @@ async function approvaRequest(requestId: string, claims: any) {
     nome    = attrs['given_name']  ?? '';
     cognome = attrs['family_name'] ?? '';
   } catch {}
-
-  const timestamp = oraLocaleToIsoUtc(item.data, item.ora);
   await dynamo.send(new PutItemCommand({
     TableName: TIMBRATURE_TABLE,
     Item: marshall({

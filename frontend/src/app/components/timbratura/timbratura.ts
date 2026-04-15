@@ -123,6 +123,10 @@ export class Timbratura implements OnInit {
     }
   }
 
+  toggleTipo() {
+    this.tipo = this.tipo === 'entrata' ? 'uscita' : 'entrata';
+  }
+
   // Step 2 — salva definitivamente
   async timbra() {
     this.caricamento = true;
@@ -130,7 +134,7 @@ export class Timbratura implements OnInit {
 
     try {
       const result = await new Promise<any>((resolve, reject) => {
-        this.api.confermaTimbratura(this.confirmToken).subscribe({ next: resolve, error: reject });
+        this.api.confermaTimbratura(this.confirmToken, this.tipo).subscribe({ next: resolve, error: reject });
       });
       this.durataMinuti = result.durataMinuti;
       this.step = 'successo';

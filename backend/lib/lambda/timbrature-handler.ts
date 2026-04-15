@@ -16,6 +16,12 @@ const JWT_SECRET       = process.env.JWT_SECRET!;
 // Distanza massima consentita tra dipendente e stazione (in metri)
 const MAX_DISTANCE_METERS = 200;
 
+// Soglia massima durata turno in ore.
+// Se l'ultima timbratura è un'entrata risalente a più di TURNO_MAX_ORE, si assume
+// che l'uscita sia stata dimenticata e il prossimo evento è una nuova entrata.
+// Copre turni notturni (≤12h) senza falsi positivi sulle dimenticanze (>20h).
+const TURNO_MAX_ORE = 20;
+
 // Formula di Haversine — calcola la distanza in metri tra due coordinate GPS
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6_371_000; // raggio terrestre in metri
@@ -99,13 +105,13 @@ async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
   } catch {}
 
   const oggi        = new Date().toISOString().slice(0, 10);
-  const ultima      = await getUltimaTimbratura(userId, oggi);
+  const ultima      = await getUltimaTimbratura(userId);
 
   // Rate limiting: blocca timbrature duplicate entro 60 secondi
   if (ultima && (Date.now() - new Date(ultima.timestamp).getTime()) < 60_000)
     return json(429, 'Hai già timbrato di recente. Attendi almeno 60 secondi.');
 
-  const tipo        = (!ultima || ultima.tipo === 'uscita') ? 'entrata' : 'uscita';
+  const tipo        = calcolaTipo(ultima);
   const confirmToken   = crypto.randomBytes(16).toString('hex');
   const pendingTimestamp = new Date().toISOString();
 
@@ -130,7 +136,7 @@ async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
 async function confermaTimbratura(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { confirmToken } = JSON.parse(event.body);
+  const { confirmToken, tipoOverride } = JSON.parse(event.body);
   if (!confirmToken) return json(400, 'confirmToken mancante');
 
   const queryResult = await dynamo.send(new QueryCommand({
@@ -146,7 +152,9 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
   if (Math.floor(Date.now() / 1000) > (pending.expiresAt ?? 0))
     return json(410, 'Sessione scaduta — ricomincia dal QR');
 
-  const timestamp = new Date().toISOString();
+  const timestamp  = new Date().toISOString();
+  // Il frontend può sovrascrivere il tipo calcolato (es. turno notturno corretto dall'utente)
+  const tipoFinale = (tipoOverride === 'entrata' || tipoOverride === 'uscita') ? tipoOverride : pending.tipo;
 
   await dynamo.send(new PutItemCommand({
     TableName: TIMBRATURE_TABLE,
@@ -158,7 +166,7 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
       data:                pending.data,
       stationId:           pending.stationId,
       stazioneDescrizione: pending.stazioneDescrizione ?? '',
-      tipo:                pending.tipo,
+      tipo:                tipoFinale,
     }),
   }));
 
@@ -168,7 +176,7 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
     Key: marshall({ userId: `pending#${confirmToken}`, timestamp: pending.timestamp }),
   }));
 
-  return json(200, { tipo: pending.tipo, timestamp, nome: pending.nome, cognome: pending.cognome });
+  return json(200, { tipo: tipoFinale, timestamp, nome: pending.nome, cognome: pending.cognome });
 }
 
 // --- POST /timbrature ---
@@ -213,12 +221,12 @@ async function registraTimbratura(event: APIGatewayProxyEvent) {
   }
 
   const oggi   = new Date().toISOString().slice(0, 10);
-  const ultima = await getUltimaTimbratura(userId, oggi);
+  const ultima = await getUltimaTimbratura(userId);
 
   if (ultima && (Date.now() - new Date(ultima.timestamp).getTime()) < 60_000)
     return json(429, 'Hai già timbrato di recente. Attendi almeno 60 secondi.');
 
-  const tipo   = (!ultima || ultima.tipo === 'uscita') ? 'entrata' : 'uscita';
+  const tipo   = calcolaTipo(ultima);
 
   const timestamp = new Date().toISOString();
   await dynamo.send(new PutItemCommand({
@@ -233,17 +241,31 @@ async function registraTimbratura(event: APIGatewayProxyEvent) {
 // Restituisce le timbrature di oggi aggregate per stazione, con il conteggio dei presenti.
 async function getDashboard() {
   const oggi = new Date().toISOString().slice(0, 10);
+  const ieri = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
 
-  // 1. Tutte le timbrature di oggi
-  const timRes = await dynamo.send(new QueryCommand({
-    TableName:              TIMBRATURE_TABLE,
-    IndexName:              'data-index',
-    KeyConditionExpression: '#d = :data',
-    ExpressionAttributeNames:  { '#d': 'data' },
-    ExpressionAttributeValues: marshall({ ':data': oggi }),
-    ScanIndexForward:          true,
-  }));
+  // 1. Timbrature di oggi e di ieri — eseguite in parallelo
+  //    Ieri serve per il calcolo presenti: un turno notturno (entrata 22:00, uscita 06:00)
+  //    ha data=ieri ma il dipendente è ancora in turno all'inizio della giornata odierna.
+  const [timRes, timResIeri] = await Promise.all([
+    dynamo.send(new QueryCommand({
+      TableName:              TIMBRATURE_TABLE,
+      IndexName:              'data-index',
+      KeyConditionExpression: '#d = :data',
+      ExpressionAttributeNames:  { '#d': 'data' },
+      ExpressionAttributeValues: marshall({ ':data': oggi }),
+      ScanIndexForward:          true,
+    })),
+    dynamo.send(new QueryCommand({
+      TableName:              TIMBRATURE_TABLE,
+      IndexName:              'data-index',
+      KeyConditionExpression: '#d = :data',
+      ExpressionAttributeNames:  { '#d': 'data' },
+      ExpressionAttributeValues: marshall({ ':data': ieri }),
+      ScanIndexForward:          true,
+    })),
+  ]);
   const timbratureOggi = (timRes.Items ?? []).map(i => unmarshall(i));
+  const timbratureIeri = (timResIeri.Items ?? []).map(i => unmarshall(i));
 
   // 2. Tutte le stazioni
   const staRes = await dynamo.send(new ScanCommand({ TableName: STAZIONI_TABLE }));
@@ -258,10 +280,11 @@ async function getDashboard() {
     };
   });
 
-  // 3. Calcola i presenti: per ogni userId, l'ultima timbratura di oggi determina la presenza
-  //    Se l'ultima è "entrata" → l'utente è presente alla stazione di quella timbratura
+  // 3. Calcola i presenti: per ogni userId, l'ultima timbratura tra ieri e oggi determina la presenza.
+  //    Unendo i due giorni si copre il caso del turno notturno (entrata ieri, uscita oggi o ancora in corso).
+  //    Se l'ultima è "entrata" → l'utente è presente alla stazione di quella timbratura.
   const ultimaPerUtente = new Map<string, any>();
-  for (const t of timbratureOggi) {
+  for (const t of [...timbratureIeri, ...timbratureOggi]) {
     const attuale = ultimaPerUtente.get(t.userId);
     if (!attuale || t.timestamp > attuale.timestamp) {
       ultimaPerUtente.set(t.userId, t);
@@ -336,17 +359,32 @@ async function validaPosizioneGps(stationId: string, lat?: number, lng?: number)
   return { errore: null, descrizione: stazione.descrizione ?? '' };
 }
 
-// Recupera l'ultima timbratura di un utente per una data specifica
-async function getUltimaTimbratura(userId: string, data: string) {
+// Recupera l'ultima timbratura in assoluto per un utente (senza filtro data).
+// Usata per determinare il tipo entrata/uscita — gestisce turni notturni a cavallo
+// della mezzanotte e rileva uscite dimenticate tramite la soglia TURNO_MAX_ORE.
+async function getUltimaTimbratura(userId: string) {
   const result = await dynamo.send(new QueryCommand({
     TableName:              TIMBRATURE_TABLE,
-    KeyConditionExpression: 'userId = :uid AND begins_with(#ts, :data)',
+    KeyConditionExpression: 'userId = :uid',
     ExpressionAttributeNames:  { '#ts': 'timestamp' },
-    ExpressionAttributeValues: marshall({ ':uid': userId, ':data': data }),
+    ExpressionAttributeValues: marshall({ ':uid': userId }),
     ScanIndexForward: false,
     Limit:            1,
   }));
   return result.Items?.[0] ? unmarshall(result.Items[0]) : null;
+}
+
+// Determina il tipo della prossima timbratura in base all'ultima registrata.
+// Logica:
+//   - nessuna precedente          → entrata
+//   - ultima era uscita           → entrata
+//   - ultima era entrata < 20h fa → uscita  (turno in corso, anche notturno)
+//   - ultima era entrata ≥ 20h fa → entrata (uscita dimenticata, nuovo turno)
+function calcolaTipo(ultima: any): 'entrata' | 'uscita' {
+  if (!ultima || ultima.tipo === 'uscita') return 'entrata';
+  const elapsed = Date.now() - new Date(ultima.timestamp).getTime();
+  if (elapsed >= TURNO_MAX_ORE * 3_600_000) return 'entrata';
+  return 'uscita';
 }
 
 // Helper per formattare la risposta JSON
