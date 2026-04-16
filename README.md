@@ -494,8 +494,20 @@ Le timbrature non vengono mostrate come eventi singoli ma abbinate in turni (ent
 **Conversione ora locale nelle richieste manuali**
 L'ora inserita dal dipendente nella richiesta è locale italiana (Europe/Rome). Al momento dell'approvazione il backend la converte in UTC usando l'offset reale del fuso (gestisce automaticamente ora solare/legale) prima di salvare il timestamp in DynamoDB, garantendo coerenza con le timbrature normali.
 
+**Reset password via email**
+Il manager può inviare una password temporanea a un dipendente direttamente dal suo profilo ("Invia password temporanea"). Il backend chiama `AdminResetUserPassword` di Cognito, che invia in automatico l'email con la password temporanea, e contestualmente resetta l'attributo `custom:password_changed = 'false'`. Al prossimo login Cognito forza il cambio password; l'`onboardingGuard` reindirizza l'utente al flusso di cambio prima di fargli accedere alla dashboard.
+
+**Reset biometria — due modalità**
+Le credenziali WebAuthn sono legate al dispositivo fisico e non possono essere trasferite. Esistono due percorsi per resettarle:
+
+*Richiesta dal dipendente (con approvazione):* il dipendente clicca "Richiedi reset" nella propria dashboard e inserisce una nota obbligatoria. Viene creata una `Request` di tipo `reset_biometria` che appare nella lista pendenti del manager (stesso endpoint e stessa tabella delle timbrature manuali — il campo `tipoRichiesta` distingue i due casi). Il manager approva: il backend cancella tutte le credenziali WebAuthn e resetta `custom:biometrics_reg = 'false'`.
+
+*Reset diretto dal manager:* il manager può resettare immediatamente la biometria di qualsiasi utente — inclusa la propria — direttamente dal pannello dettaglio utente, senza passare per il flusso di approvazione (`POST /users/{id}/reset-biometrics`). Utile per il manager stesso, che non potrebbe auto-approvare una propria richiesta.
+
+In entrambi i casi, al prossimo login l'utente viene reindirizzato a `/first-access` per registrare il nuovo dispositivo.
+
 **Audit trail**
-Ogni operazione sensibile scrive una voce nella tabella `AuditLog`. Le operazioni tracciate sono: creazione/modifica/cancellazione di utenti, contratti e stazioni; approvazione e rifiuto di richieste manuali. La scrittura è **best-effort**: se il log fallisce (es. timeout DynamoDB), l'operazione principale va comunque a buon fine e l'errore viene stampato in CloudWatch senza propagarsi al client.
+Ogni operazione sensibile scrive una voce nella tabella `AuditLog`. Le operazioni tracciate sono: creazione/modifica/cancellazione di utenti, contratti e stazioni; approvazione e rifiuto di richieste manuali; reset password e reset biometria. La scrittura è **best-effort**: se il log fallisce (es. timeout DynamoDB), l'operazione principale va comunque a buon fine e l'errore viene stampato in CloudWatch senza propagarsi al client.
 
 La funzione `writeAudit()` in `audit.ts` è condivisa tra tutti i Lambda. Ogni voce include: chi ha agito (`actor` + `actorRole`), l'azione (`action`), l'entità coinvolta (`entityType` + `entityId`), il timestamp e dettagli opzionali in JSON. Il PK è `<ISO 8601>#<4 byte hex>` — la parte ISO garantisce ordine cronologico naturale; il suffisso hex evita collisioni in caso di eventi concorrenti. Le voci scadono automaticamente dopo 5 anni tramite TTL DynamoDB.
 

@@ -9,7 +9,8 @@ export type AuditAction =
   | 'REQUEST_APPROVE' | 'REQUEST_REJECT'
   | 'CONTRACT_CREATE' | 'CONTRACT_UPDATE' | 'CONTRACT_DELETE'
   | 'STATION_CREATE' | 'STATION_DELETE'
-  | 'BIOMETRIC_REGISTER' | 'PASSWORD_CHANGE';
+  | 'BIOMETRIC_REGISTER' | 'PASSWORD_CHANGE'
+  | 'PASSWORD_RESET' | 'BIOMETRIC_RESET';
 
 export interface AuditEntry {
   actor:      string;                                           // userId di chi esegue, o 'system'

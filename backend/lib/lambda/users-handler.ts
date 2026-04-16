@@ -6,6 +6,7 @@ import {
   AdminGetUserCommand,
   AdminUpdateUserAttributesCommand,
   AdminDeleteUserCommand,
+  AdminResetUserPasswordCommand,
   ListUsersCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient, QueryCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
@@ -53,6 +54,16 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   }
 
   if (!isManagerClaims(claims)) return json(403, 'Accesso negato');
+
+  // POST /users/{id}/reset-password — manager invia password temporanea via email
+  if (event.httpMethod === 'POST' && event.resource === '/users/{id}/reset-password' && userId) {
+    return await resetPassword(userId, claims);
+  }
+
+  // POST /users/{id}/reset-biometrics — manager resetta direttamente le credenziali biometriche
+  if (event.httpMethod === 'POST' && event.resource === '/users/{id}/reset-biometrics' && userId) {
+    return await resetBiometrics(userId, claims);
+  }
 
   switch (event.httpMethod) {
     case 'POST':   return await createEmployee(event, claims);
@@ -181,6 +192,75 @@ async function updateEmployee(userId: string, event: APIGatewayProxyEvent, claim
     });
 
     return json(200, { message: 'Dipendente aggiornato' });
+  } catch (err: any) {
+    const { status, message } = cognitoErrorToHttp(err);
+    return json(status, message);
+  }
+}
+
+// --- POST /users/{id}/reset-password — manager invia password temporanea via email ---
+async function resetPassword(userId: string, claims: any) {
+  try {
+    // Cognito invia automaticamente email con password temporanea e forza il cambio al prossimo login
+    await cognitoClient.send(new AdminResetUserPasswordCommand({
+      UserPoolId: USER_POOL_ID,
+      Username:   userId,
+    }));
+    // Resetta il flag custom — al prossimo login l'onboardingGuard forza il cambio password
+    await cognitoClient.send(new AdminUpdateUserAttributesCommand({
+      UserPoolId:     USER_POOL_ID,
+      Username:       userId,
+      UserAttributes: [{ Name: 'custom:password_changed', Value: 'false' }],
+    }));
+    await writeAudit(AUDIT_TABLE, {
+      actor:      claims?.['cognito:username'] ?? 'system',
+      actorRole:  'manager',
+      action:     'PASSWORD_RESET',
+      entityType: 'user',
+      entityId:   userId,
+    });
+    return json(200, { message: 'Password temporanea inviata per email' });
+  } catch (err: any) {
+    const { status, message } = cognitoErrorToHttp(err);
+    return json(status, message);
+  }
+}
+
+// --- POST /users/{id}/reset-biometrics — manager resetta direttamente le credenziali biometriche ---
+async function resetBiometrics(userId: string, claims: any) {
+  try {
+    // 1. Cancella tutte le credenziali WebAuthn dell'utente
+    const result = await dynamoClient.send(new QueryCommand({
+      TableName: WEBAUTHN_TABLE,
+      IndexName: 'userId-index',
+      KeyConditionExpression: 'userId = :uid',
+      ExpressionAttributeValues: marshall({ ':uid': userId }),
+    }));
+    const credentials = (result.Items ?? []).map(i => unmarshall(i));
+    await Promise.all(credentials.map(c =>
+      dynamoClient.send(new DeleteItemCommand({
+        TableName: WEBAUTHN_TABLE,
+        Key: marshall({ credentialId: c.credentialId }),
+      }))
+    ));
+
+    // 2. Resetta il flag — al prossimo login l'utente viene rimandato a /first-access
+    await cognitoClient.send(new AdminUpdateUserAttributesCommand({
+      UserPoolId:     USER_POOL_ID,
+      Username:       userId,
+      UserAttributes: [{ Name: 'custom:biometrics_reg', Value: 'false' }],
+    }));
+
+    await writeAudit(AUDIT_TABLE, {
+      actor:      claims?.['cognito:username'] ?? 'system',
+      actorRole:  'manager',
+      action:     'BIOMETRIC_RESET',
+      entityType: 'user',
+      entityId:   userId,
+      details:    { credentialsDeleted: credentials.length },
+    });
+
+    return json(200, { message: 'Biometria resettata' });
   } catch (err: any) {
     const { status, message } = cognitoErrorToHttp(err);
     return json(status, message);

@@ -35,7 +35,7 @@
 | Lun 13 Apr | 6 | Separazione ambienti dev/prod con CDK: stack separati, distribuzioni CloudFront, tabelle DynamoDB con suffisso — `bf597a5` |
 | Mar 14 Apr | 6 | Studio e prototipazione modulo gestione contratti/orari: schema tabella Contracts, handler Lambda e endpoint API |
 | Mer 15 Apr | 6 | Fix discrepanze README, rimozione pulsante biometrico da login, allineamento outputs CloudFormation dev/prod — `f833349`, `97f21bf`, `04fe3be`, `3088b76` |
-| Gio 16 Apr | 6 | Implementazione modulo gestione contratti/orari: tabella DynamoDB, handler Lambda e integrazione API |
+| Gio 16 Apr | 6 | Implementazione reset password via email (manager) e reset biometria con approvazione manager: nuova rotta `POST /users/{id}/reset-password`, branch `reset_biometria` in `approvaRequest`, aggiornamento IAM, API service e UI dashboard manager/dipendente |
 | Ven 17 Apr | 6 | Test, revisione finale del progetto e documentazione |
 
 ---

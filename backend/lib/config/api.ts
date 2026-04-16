@@ -154,6 +154,8 @@ export class ApiConfig extends Construct {
     user.addMethod('GET',    new apigateway.LambdaIntegration(handler), opts); // Dettaglio dipendente
     user.addMethod('PUT',    new apigateway.LambdaIntegration(handler), opts); // Modifica dipendente
     user.addMethod('DELETE', new apigateway.LambdaIntegration(handler), opts); // Elimina dipendente
+    user.addResource('reset-password').addMethod('POST', new apigateway.LambdaIntegration(handler), opts);   // Invia password temporanea (manager)
+    user.addResource('reset-biometrics').addMethod('POST', new apigateway.LambdaIntegration(handler), opts); // Reset diretto biometria (manager)
   }
 
   // Aggiunge le rotte /audit — solo manager possono visualizzare l'audit trail

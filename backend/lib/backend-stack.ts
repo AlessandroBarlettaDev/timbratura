@@ -48,6 +48,7 @@ export class BackendStack extends cdk.Stack {
       'cognito-idp:AdminGetUser',
       'cognito-idp:AdminUpdateUserAttributes',
       'cognito-idp:AdminDeleteUser',
+      'cognito-idp:AdminResetUserPassword',
     );
     dynamo.webAuthnTable.grantReadWriteData(usersHandler);
     dynamo.auditLogTable.grantWriteData(usersHandler);
@@ -125,7 +126,7 @@ export class BackendStack extends cdk.Stack {
     dynamo.auditLogTable.grantWriteData(contractsHandler);
     cognito.userPool.grant(contractsHandler, 'cognito-idp:AdminGetUser');
 
-    // Lambda per le richieste di timbratura manuale
+    // Lambda per le richieste di timbratura manuale e reset biometria
     const requestsHandler = new NodejsFunction(this, 'RequestsHandler', {
       runtime: Runtime.NODEJS_22_X,
       entry:   path.join(__dirname, 'lambda/requests-handler.ts'),
@@ -133,14 +134,19 @@ export class BackendStack extends cdk.Stack {
       environment: {
         REQUESTS_TABLE_NAME:   dynamo.requestsTable.tableName,
         TIMBRATURE_TABLE_NAME: dynamo.timbratureTable.tableName,
+        WEBAUTHN_TABLE_NAME:   dynamo.webAuthnTable.tableName,
         USER_POOL_ID:          cognito.userPool.userPoolId,
         AUDIT_TABLE_NAME:      dynamo.auditLogTable.tableName,
       },
     });
     dynamo.requestsTable.grantReadWriteData(requestsHandler);
     dynamo.timbratureTable.grantReadWriteData(requestsHandler);
+    dynamo.webAuthnTable.grantReadWriteData(requestsHandler);
     dynamo.auditLogTable.grantWriteData(requestsHandler);
-    cognito.userPool.grant(requestsHandler, 'cognito-idp:AdminGetUser');
+    cognito.userPool.grant(requestsHandler,
+      'cognito-idp:AdminGetUser',
+      'cognito-idp:AdminUpdateUserAttributes',
+    );
 
     // Lambda per la consultazione dell'audit trail
     const auditHandler = new NodejsFunction(this, 'AuditHandler', {

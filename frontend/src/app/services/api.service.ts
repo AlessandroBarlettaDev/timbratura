@@ -18,6 +18,8 @@ export class ApiService {
   getUsers(): Observable<any> { return this.http.get(`${this.apiUrl}/users`); }
   markPasswordChanged(): Observable<any>      { return this.http.post(`${this.apiUrl}/users/password-changed`, {}); }
   markBiometricsRegistered(): Observable<any> { return this.http.post(`${this.apiUrl}/users/biometrics-registered`, {}); }
+  resetPassword(userId: string): Observable<any>    { return this.http.post(`${this.apiUrl}/users/${userId}/reset-password`, {}); }
+  resetBiometrics(userId: string): Observable<any>  { return this.http.post(`${this.apiUrl}/users/${userId}/reset-biometrics`, {}); }
 
   // --- Biometric Registration ---
   startBiometricRegistration(): Observable<any>                    { return this.http.post(`${this.apiUrl}/biometric/registration/start`, {}); }

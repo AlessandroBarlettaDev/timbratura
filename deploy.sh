@@ -96,6 +96,23 @@ else
   STACK_NAME="BackendStack"
 fi
 
+# ─── Auto-fetch JWT_SECRET dalla Lambda se non già impostato ──────────────────
+if [ -z "${JWT_SECRET:-}" ]; then
+  _LAMBDA=$(aws lambda list-functions \
+    --query "Functions[?contains(FunctionName, \`${STACK_NAME}\`) && contains(FunctionName, \`Timbrature\`)].FunctionName" \
+    --output text 2>/dev/null | awk '{print $1}')
+  if [ -n "$_LAMBDA" ]; then
+    _SECRET=$(aws lambda get-function-configuration \
+      --function-name "$_LAMBDA" \
+      --query "Environment.Variables.JWT_SECRET" \
+      --output text 2>/dev/null)
+    if [ -n "$_SECRET" ] && [ "$_SECRET" != "None" ]; then
+      export JWT_SECRET="$_SECRET"
+      echo "  → JWT_SECRET recuperato automaticamente dalla Lambda."
+    fi
+  fi
+fi
+
 # ─── Legge gli outputs da uno stack CloudFormation già deployato ───────────────
 # Stampa 6 righe: BucketName, CloudFrontId, AppUrl, ApiUrl, UserPoolId, ClientId
 # Ritorna exit code 1 se lo stack non esiste o non ha outputs.

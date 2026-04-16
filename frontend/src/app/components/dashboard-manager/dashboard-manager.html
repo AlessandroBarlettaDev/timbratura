@@ -156,16 +156,30 @@
               <span class="detail-label">Data di nascita</span>    <span>{{ selectedUser.birthdate || '—' }}</span>
               <span class="detail-label">Codice fiscale</span>     <span>{{ selectedUser.codice_fiscale || '—' }}</span>
               <span class="detail-label">Password cambiata</span>
-              <span>
+              <span style="display:flex; align-items:center; gap:10px;">
                 <span class="badge" [class.badge-active]="selectedUser.password_changed === 'true'" [class.badge-inactive]="selectedUser.password_changed !== 'true'">
                   {{ selectedUser.password_changed === 'true' ? 'Sì' : 'No' }}
                 </span>
+                <button class="btn-detail-action" style="font-size:12px; padding:4px 10px;" (click)="resetPasswordDipendente()" [disabled]="resetPasswordLoading">
+                  {{ resetPasswordLoading ? '...' : 'Invia password temporanea' }}
+                </button>
+                @if (resetPasswordMessage) {
+                  <span style="font-size:12px; color:#16a34a;">{{ resetPasswordMessage }}</span>
+                }
               </span>
               <span class="detail-label">Biometria registrata</span>
-              <span>
+              <span style="display:flex; align-items:center; gap:10px;">
                 <span class="badge" [class.badge-active]="selectedUser.biometrics_reg === 'true'" [class.badge-inactive]="selectedUser.biometrics_reg !== 'true'">
                   {{ selectedUser.biometrics_reg === 'true' ? 'Sì' : 'No' }}
                 </span>
+                @if (selectedUser.biometrics_reg === 'true') {
+                  <button class="btn-detail-action" style="font-size:12px; padding:4px 10px;" (click)="resetBiometricsDipendente()" [disabled]="resetBiometricsLoading">
+                    {{ resetBiometricsLoading ? '...' : 'Reset biometria' }}
+                  </button>
+                }
+                @if (resetBiometricsMessage) {
+                  <span style="font-size:12px; color:#16a34a;">{{ resetBiometricsMessage }}</span>
+                }
               </span>
               <span class="detail-label">Presente ora</span>
               <span>
@@ -271,13 +285,17 @@
             @for (r of richieste; track r.requestId) {
               <tr>
                 <td>{{ r.nomeUtente }}</td>
-                <td>{{ r.data }}</td>
+                <td>{{ r.tipoRichiesta === 'reset_biometria' ? '—' : r.data }}</td>
                 <td>
-                  <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
-                    {{ r.tipo | titlecase }}
-                  </span>
+                  @if (r.tipoRichiesta === 'reset_biometria') {
+                    <span class="badge" style="background:#ede9fe; color:#6d28d9;">Reset biometria</span>
+                  } @else {
+                    <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
+                      {{ r.tipo | titlecase }}
+                    </span>
+                  }
                 </td>
-                <td>{{ r.ora }}</td>
+                <td>{{ r.tipoRichiesta === 'reset_biometria' ? '—' : r.ora }}</td>
                 <td style="max-width:220px; white-space:normal; word-break:break-word;">{{ r.nota }}</td>
                 <td>{{ formatTimestamp(r.createdAt).data }} {{ formatTimestamp(r.createdAt).ora }}</td>
                 <td style="text-align:right; white-space:nowrap;">
@@ -497,21 +515,31 @@
   <div class="modal-overlay" (click)="showApprovaModal = false">
     <div class="modal-card" style="max-width:520px;" (click)="$event.stopPropagation()">
       <h2>Conferma approvazione</h2>
-      <p style="color:#666; margin-bottom:4px;">
-        Stai per aggiungere una timbratura manuale per <strong>{{ approvaModalRichiesta?.nomeUtente }}</strong>:
-      </p>
-      <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
-        <span class="badge" [class.badge-active]="approvaModalRichiesta?.tipo === 'entrata'" [class.badge-inactive]="approvaModalRichiesta?.tipo === 'uscita'">
-          {{ approvaModalRichiesta?.tipo | titlecase }}
-        </span>
-        <span style="font-weight:600;">{{ approvaModalRichiesta?.data }}</span>
-        <span>ore {{ approvaModalRichiesta?.ora }}</span>
-      </div>
 
-      <p style="font-size:13px; font-weight:600; color:#444; margin-bottom:8px;">
-        Timbrature già presenti per questo giorno:
-      </p>
+      @if (approvaModalRichiesta?.tipoRichiesta === 'reset_biometria') {
+        <p style="color:#666; margin-bottom:16px;">
+          Stai per resettare la biometria di <strong>{{ approvaModalRichiesta?.nomeUtente }}</strong>.
+          Tutte le credenziali WebAuthn registrate verranno cancellate e al prossimo login l'utente dovrà registrare di nuovo il dispositivo.
+        </p>
+        <p style="font-size:12px; color:#999; margin-bottom:20px; font-style:italic;">{{ approvaModalRichiesta?.nota }}</p>
+      } @else {
+        <p style="color:#666; margin-bottom:4px;">
+          Stai per aggiungere una timbratura manuale per <strong>{{ approvaModalRichiesta?.nomeUtente }}</strong>:
+        </p>
+        <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+          <span class="badge" [class.badge-active]="approvaModalRichiesta?.tipo === 'entrata'" [class.badge-inactive]="approvaModalRichiesta?.tipo === 'uscita'">
+            {{ approvaModalRichiesta?.tipo | titlecase }}
+          </span>
+          <span style="font-weight:600;">{{ approvaModalRichiesta?.data }}</span>
+          <span>ore {{ approvaModalRichiesta?.ora }}</span>
+        </div>
 
+        <p style="font-size:13px; font-weight:600; color:#444; margin-bottom:8px;">
+          Timbrature già presenti per questo giorno:
+        </p>
+      }
+
+      @if (approvaModalRichiesta?.tipoRichiesta !== 'reset_biometria') {
       @if (approvaModalLoading) {
         <div class="spinner-container" style="margin:12px 0;"><div class="spinner"></div></div>
       } @else if (approvaModalTimbrature.length > 0) {
@@ -560,6 +588,7 @@
           </table>
         </div>
       }
+      } <!-- end @if tipoRichiesta !== reset_biometria -->
 
       @if (approvaModalError) { <p class="modal-error">{{ approvaModalError }}</p> }
       <button class="btn-login" (click)="confermaApprova()">Conferma approvazione</button>
@@ -575,7 +604,11 @@
       <h2>Rifiuta richiesta</h2>
       <p style="color:#666; margin-bottom:16px;">
         Stai rifiutando la richiesta di <strong>{{ richiestaSelezionata?.nomeUtente }}</strong>:
-        {{ richiestaSelezionata?.tipo | titlecase }} del {{ richiestaSelezionata?.data }} alle {{ richiestaSelezionata?.ora }}.
+        @if (richiestaSelezionata?.tipoRichiesta === 'reset_biometria') {
+          Reset biometria.
+        } @else {
+          {{ richiestaSelezionata?.tipo | titlecase }} del {{ richiestaSelezionata?.data }} alle {{ richiestaSelezionata?.ora }}.
+        }
       </p>
       <div class="form-group">
         <label>Motivo del rifiuto *</label>

@@ -46,8 +46,13 @@
               </div>
               <div class="detail-item">
                 <span class="detail-label">Biometria registrata</span>
-                <span class="badge" [class.badge-active]="profile.biometrics_reg === 'true'" [class.badge-inactive]="profile.biometrics_reg !== 'true'">
-                  {{ profile.biometrics_reg === 'true' ? 'Sì' : 'No' }}
+                <span style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <span class="badge" [class.badge-active]="profile.biometrics_reg === 'true'" [class.badge-inactive]="profile.biometrics_reg !== 'true'">
+                    {{ profile.biometrics_reg === 'true' ? 'Sì' : 'No' }}
+                  </span>
+                  @if (profile.biometrics_reg === 'true') {
+                    <button class="btn-detail-action" style="font-size:12px; padding:4px 10px;" (click)="openResetBiometriaModal()">Richiedi reset</button>
+                  }
                 </span>
               </div>
               <div class="detail-item">
@@ -120,13 +125,17 @@
                 <tbody>
                   @for (r of mieRequests; track r.requestId) {
                     <tr>
-                      <td>{{ r.data }}</td>
+                      <td>{{ r.tipoRichiesta === 'reset_biometria' ? '—' : r.data }}</td>
                       <td>
-                        <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
-                          {{ r.tipo | titlecase }}
-                        </span>
+                        @if (r.tipoRichiesta === 'reset_biometria') {
+                          <span class="badge" style="background:#ede9fe; color:#6d28d9;">Reset biometria</span>
+                        } @else {
+                          <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
+                            {{ r.tipo | titlecase }}
+                          </span>
+                        }
                       </td>
-                      <td>{{ r.ora }}</td>
+                      <td>{{ r.tipoRichiesta === 'reset_biometria' ? '—' : r.ora }}</td>
                       <td style="max-width:200px; white-space:normal; word-break:break-word;">{{ r.nota }}</td>
                       <td>
                         <span class="badge"
@@ -234,6 +243,25 @@
 </div>
 
 <!-- Modale nuova richiesta -->
+<!-- Modale reset biometria -->
+@if (showResetBiometriaModal) {
+  <div class="modal-overlay" (click)="closeResetBiometriaModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <h2>Richiedi reset biometria</h2>
+      <p style="color:#666; margin-bottom:16px; font-size:14px;">
+        La tua richiesta verrà inviata al manager. Una volta approvata, le tue credenziali biometriche verranno cancellate e al prossimo login potrai registrare un nuovo dispositivo.
+      </p>
+      <div class="form-group">
+        <label>Motivo * <span style="font-size:12px; color:#999;">(es. cambio telefono)</span></label>
+        <textarea [(ngModel)]="resetBiometriaNote" rows="3" placeholder="Spiega il motivo del reset..." style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+      </div>
+      @if (resetBiometriaError) { <p class="modal-error">{{ resetBiometriaError }}</p> }
+      <button class="btn-login" (click)="inviaResetBiometria()">Invia richiesta</button>
+      <button class="btn-forgot" (click)="closeResetBiometriaModal()">Annulla</button>
+    </div>
+  </div>
+}
+
 @if (showRequestModal) {
   <div class="modal-overlay" (click)="closeRequestModal()">
     <div class="modal-card" (click)="$event.stopPropagation()">

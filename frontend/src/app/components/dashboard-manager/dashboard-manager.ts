@@ -1,14 +1,15 @@
 import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { NgTemplateOutlet, TitleCasePipe, DecimalPipe } from '@angular/common';
+import { NgTemplateOutlet, TitleCasePipe, DecimalPipe, SlicePipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/user-auth.service';
+import { esportaExcel } from '../../utils/excel-export';
 
 type Section = 'dashboard' | 'utenti' | 'stazioni' | 'richieste' | 'audit';
 
 @Component({
   selector: 'app-dashboard-manager',
-  imports: [FormsModule, NgTemplateOutlet, TitleCasePipe, DecimalPipe],
+  imports: [FormsModule, NgTemplateOutlet, TitleCasePipe, DecimalPipe, SlicePipe],
   templateUrl: './dashboard-manager.html',
   styleUrl: '../../app.css',
 })
@@ -35,6 +36,12 @@ export class DashboardManager implements OnInit {
   showEditModal     = false;
   editUser: any     = {};
   showDeleteConfirm = false;
+
+  resetPasswordLoading = false;
+  resetPasswordMessage: string | null = null;
+
+  resetBiometricsLoading = false;
+  resetBiometricsMessage: string | null = null;
 
   // ─── Richieste ────────────────────────────────────────────────────────────
   richieste:          any[] = [];
@@ -216,6 +223,46 @@ export class DashboardManager implements OnInit {
     });
   }
 
+  resetPasswordDipendente() {
+    if (!confirm(`Inviare una password temporanea via email a ${this.selectedUser?.email}?`)) return;
+    this.resetPasswordLoading = true;
+    this.resetPasswordMessage = null;
+    this.apiService.resetPassword(this.selectedUser.id).subscribe({
+      next: () => {
+        this.resetPasswordLoading = false;
+        this.resetPasswordMessage = 'Password temporanea inviata via email.';
+        this.cdr.detectChanges();
+        setTimeout(() => { this.resetPasswordMessage = null; this.cdr.detectChanges(); }, 4000);
+      },
+      error: (err) => {
+        this.resetPasswordLoading = false;
+        this.resetPasswordMessage = err.error?.message ?? 'Errore durante il reset';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  resetBiometricsDipendente() {
+    const nome = `${this.selectedUser?.given_name ?? ''} ${this.selectedUser?.family_name ?? ''}`.trim();
+    if (!confirm(`Resettare la biometria di ${nome}? Le credenziali WebAuthn verranno cancellate definitivamente.`)) return;
+    this.resetBiometricsLoading = true;
+    this.resetBiometricsMessage = null;
+    this.apiService.resetBiometrics(this.selectedUser.id).subscribe({
+      next: () => {
+        this.resetBiometricsLoading = false;
+        this.resetBiometricsMessage = 'Biometria resettata. Al prossimo login l\'utente dovrà registrare il dispositivo.';
+        this.selectUser({ id: this.selectedUser.id }); // ricarica per aggiornare il badge
+        this.cdr.detectChanges();
+        setTimeout(() => { this.resetBiometricsMessage = null; this.cdr.detectChanges(); }, 5000);
+      },
+      error: (err) => {
+        this.resetBiometricsLoading = false;
+        this.resetBiometricsMessage = err.error?.message ?? 'Errore durante il reset';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
   confirmDelete() {
     this.apiService.deleteUser(this.selectedUser.id).subscribe({
       next: () => {
@@ -345,15 +392,18 @@ export class DashboardManager implements OnInit {
     this.approvaModalRichiesta       = r;
     this.approvaModalTimbrature      = [];
     this.approvaModalAltreRichieste  = [];
-    this.approvaModalLoading         = true;
+    this.approvaModalLoading         = false;
     this.approvaModalError           = null;
     this.showApprovaModal            = true;
+
+    if (r.tipoRichiesta === 'reset_biometria') return;
 
     // Altre richieste pendenti dello stesso utente per lo stesso giorno
     this.approvaModalAltreRichieste = this.richieste.filter(
       p => p.requestId !== r.requestId && p.userId === r.userId && p.data === r.data
     ).sort((a: any, b: any) => a.ora.localeCompare(b.ora));
 
+    this.approvaModalLoading = true;
     const mese = r.data.slice(0, 7);
     this.apiService.getTimbratureUtente(r.userId, mese).subscribe({
       next: (data) => {
@@ -601,88 +651,41 @@ export class DashboardManager implements OnInit {
     const nome = `${u?.given_name ?? ''} ${u?.family_name ?? ''}`.trim();
     const mm   = this.meseSelezionato ? `-${String(this.meseSelezionato).padStart(2, '0')}` : '-annuale';
     const slug = nome.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    const e    = (v: string) => this.escapeCsv(v);
 
-    const sezioni: string[] = [];
-
-    // ── ANAGRAFICA ────────────────────────────────────────────────────────────
-    sezioni.push(
-      [e('=== ANAGRAFICA ==='), ''].join(';'),
-      [e('Dipendente'),    e(nome)].join(';'),
-      ...(u?.email          ? [[e('Email'),          e(u.email)].join(';')]          : []),
-      ...(u?.codice_fiscale ? [[e('Codice fiscale'),  e(u.codice_fiscale)].join(';')] : []),
-      '',
-    );
-
-    // ── CONTRATTO ─────────────────────────────────────────────────────────────
-    if (c) {
-      const tl = (t: string) => ({ indeterminato: 'Indeterminato', determinato: 'Determinato', part_time: 'Part-time', apprendistato: 'Apprendistato', stage: 'Stage' }[t] ?? t);
-      sezioni.push(
-        [e('=== CONTRATTO ==='), ''].join(';'),
-        [e('Tipo'),        e(tl(c.tipoContratto))].join(';'),
-        [e('Data inizio'), e(c.dataInizio)].join(';'),
-        [e('Data fine'),   e(c.dataFine || '—')].join(';'),
-        ...(c.oreSett            ? [[e('Ore sett.'),       e(`${c.oreSett}h`)].join(';')]                  : []),
-        ...(c.giorniSett         ? [[e('Giorni sett.'),    e(String(c.giorniSett))].join(';')]              : []),
-        ...(c.retribuzioneLorda  ? [[e('Lordo mensile'),   e(`${c.retribuzioneLorda.toLocaleString('it-IT')} €`)].join(';')]  : []),
-        ...(c.retribuzioneNetta  ? [[e('Netto mensile'),   e(`${c.retribuzioneNetta.toLocaleString('it-IT')} €`)].join(';')]  : []),
-        ...(c.livello            ? [[e('Livello'),         e(c.livello)].join(';')]                         : []),
-        ...(c.mansione           ? [[e('Mansione'),        e(c.mansione)].join(';')]                        : []),
-        ...(c.ccnl               ? [[e('CCNL'),            e(c.ccnl)].join(';')]                            : []),
-        ...(c.giorniFerie        ? [[e('Ferie annuali'),   e(`${c.giorniFerie} gg`)].join(';')]             : []),
-        ...(c.permessiOre        ? [[e('Permessi ROL'),    e(`${c.permessiOre}h`)].join(';')]               : []),
-        '',
-      );
-    }
-
-    // ── ANALISI PERIODO ───────────────────────────────────────────────────────
+    let analisi = undefined;
     if (c?.oreSett) {
-      const minutiLavorati     = this.calcolaMinutiLavorati(this.timbrature);
-      const giorniLavAtt       = this.countWorkingDays(this.annoSelezionato, this.meseSelezionato);
-      const orePerGiorno       = c.oreSett / (c.giorniSett ?? 5);
-      const minutiAttesi       = Math.round(giorniLavAtt * orePerGiorno * 60);
-      const minutiStraord      = Math.max(0, minutiLavorati - minutiAttesi);
-      const minutiMancanti     = Math.max(0, minutiAttesi - minutiLavorati);
-      const retribOraria       = c.retribuzioneLorda ? c.retribuzioneLorda / (c.oreSett * 52 / 12) : null;
-      const importoStraord     = retribOraria ? (minutiStraord / 60) * retribOraria : null;
-
-      sezioni.push(
-        [e('=== ANALISI PERIODO ==='), ''].join(';'),
-        [e('Periodo'),                     e(this.periodoLabel)].join(';'),
-        [e('Giorni lavorativi attesi'),    e(String(giorniLavAtt))].join(';'),
-        [e('Ore contrattuali attese'),     e(this.formatDurata(minutiAttesi))].join(';'),
-        [e('Ore effettivamente lavorate'), e(this.formatDurata(minutiLavorati))].join(';'),
-        [e('Ore straordinarie'),           e(minutiStraord > 0 ? this.formatDurata(minutiStraord) : '—')].join(';'),
-        [e('Ore mancanti'),                e(minutiMancanti > 0 ? this.formatDurata(minutiMancanti) : '—')].join(';'),
-        ...(retribOraria             ? [[e('Retribuzione oraria lorda'),   e(`${retribOraria.toFixed(2).replace('.', ',')} €`)].join(';')]              : []),
-        ...(c.retribuzioneNetta && this.meseSelezionato != null ? [[e('Stipendio base netto'), e(`${c.retribuzioneNetta.toLocaleString('it-IT')} €`)].join(';')] : []),
-        ...(importoStraord != null && minutiStraord > 0 ? [[e('Importo straordinari lordo (indicativo)'), e(`${importoStraord.toFixed(2).replace('.', ',')} €`)].join(';')] : []),
-        [e('* I festivi non sono inclusi nel conteggio dei giorni lavorativi'), ''].join(';'),
-        '',
-      );
+      const minutiLavorati = this.calcolaMinutiLavorati(this.timbrature);
+      const giorniLavAtt   = this.countWorkingDays(this.annoSelezionato, this.meseSelezionato);
+      const minutiAttesi   = Math.round(giorniLavAtt * (c.oreSett / (c.giorniSett ?? 5)) * 60);
+      const minutiStraord  = Math.max(0, minutiLavorati - minutiAttesi);
+      const minutiMancanti = Math.max(0, minutiAttesi - minutiLavorati);
+      const retribOraria   = c.retribuzioneLorda ? c.retribuzioneLorda / (c.oreSett * 52 / 12) : null;
+      analisi = {
+        giorniLavAtt, minutiAttesi, minutiLavorati,
+        minutiStraord, minutiMancanti, retribOraria,
+        importoStraord: retribOraria ? (minutiStraord / 60) * retribOraria : null,
+      };
     }
 
-    // ── TURNI ─────────────────────────────────────────────────────────────────
-    sezioni.push(
-      [e('=== TURNI ==='), ''].join(';'),
-      ['Data', 'Entrata', 'Uscita', 'Durata', 'Ore decimali', 'Sede'].map(e).join(';'),
-      ...this.turni.map(t => [
-        t.data,
-        t.entrata,
-        t.uscita ?? '—',
-        t.durata ?? '—',
-        this.durataToDecimal(t.durata),
-        t.sede,
-      ].map(v => e(v)).join(';')),
-    );
-
-    const csv  = '\ufeff' + sezioni.join('\n');
-    const blob = new Blob([csv], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href  = URL.createObjectURL(blob);
-    link.download = `timbrature-${slug}-${this.annoSelezionato}${mm}.xls`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+    esportaExcel({
+      nome,
+      email:         u?.email,
+      codiceFiscale: u?.codice_fiscale,
+      contratto:     c,
+      stats: {
+        periodoLabel:     this.periodoLabel,
+        oreLavorate:      this.oreLavorate,
+        giorniLavorati:   this.giorniLavorati,
+        mediaGiornaliera: this.mediaGiornaliera,
+        formatDurata:     (m: number) => this.formatDurata(m),
+      },
+      analisi,
+      presenze: this.turni.map(t => ({
+        data: t.data, entrata: t.entrata, uscita: t.uscita,
+        durata: t.durata, oreDecimali: this.durataToDecimal(t.durata), sede: t.sede,
+      })),
+      filename: `timbrature-${slug}-${this.annoSelezionato}${mm}.xlsx`,
+    });
   }
 
 
@@ -761,7 +764,4 @@ export class DashboardManager implements OnInit {
     return count;
   }
 
-  private escapeCsv(value: string): string {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
 }
