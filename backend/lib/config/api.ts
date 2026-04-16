@@ -155,4 +155,21 @@ export class ApiConfig extends Construct {
     user.addMethod('PUT',    new apigateway.LambdaIntegration(handler), opts); // Modifica dipendente
     user.addMethod('DELETE', new apigateway.LambdaIntegration(handler), opts); // Elimina dipendente
   }
+
+  // Aggiunge le rotte /audit — solo manager possono visualizzare l'audit trail
+  public addAuditRoutes(handler: lambda.IFunction) {
+    const cognitoOpts = { authorizer: this.authorizer, authorizationType: apigateway.AuthorizationType.COGNITO };
+
+    const audit = this.api.root.addResource('audit');
+    audit.addMethod('GET', new apigateway.LambdaIntegration(handler), cognitoOpts); // Lista generica con filtri
+
+    const actor = audit.addResource('actor');
+    const actorParam = actor.addResource('{actor}');
+    actorParam.addMethod('GET', new apigateway.LambdaIntegration(handler), cognitoOpts); // Filtro per attore
+
+    const entity = audit.addResource('entity');
+    const entityType = entity.addResource('{entityType}');
+    const entityId = entityType.addResource('{entityId}');
+    entityId.addMethod('GET', new apigateway.LambdaIntegration(handler), cognitoOpts); // Filtro per entità
+  }
 }

@@ -142,6 +142,17 @@ export class BackendStack extends cdk.Stack {
     dynamo.auditLogTable.grantWriteData(requestsHandler);
     cognito.userPool.grant(requestsHandler, 'cognito-idp:AdminGetUser');
 
+    // Lambda per la consultazione dell'audit trail
+    const auditHandler = new NodejsFunction(this, 'AuditHandler', {
+      runtime: Runtime.NODEJS_22_X,
+      entry:   path.join(__dirname, 'lambda/audit-handler.ts'),
+      handler: 'handler',
+      environment: {
+        AUDIT_TABLE_NAME: dynamo.auditLogTable.tableName,
+      },
+    });
+    dynamo.auditLogTable.grantReadData(auditHandler);
+
     // API Gateway
     const api = new ApiConfig(this, 'Api', { userPool: cognito.userPool, appUrl });
 
@@ -151,5 +162,6 @@ export class BackendStack extends cdk.Stack {
     api.addTimbratureRoutes(timbratureHandler);
     api.addRequestsRoutes(requestsHandler);
     api.addContractsRoutes(contractsHandler);
+    api.addAuditRoutes(auditHandler);
   }
 }

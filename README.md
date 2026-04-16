@@ -412,6 +412,9 @@ Le scritture sono **best-effort**: un errore nel log non blocca l'operazione pri
 | `/contracts/me` | GET | Cognito | Contratti del dipendente loggato |
 | `/contracts/{id}` | PUT | Cognito (manager) | Modifica contratto |
 | `/contracts/{id}` | DELETE | Cognito (manager) | Elimina contratto |
+| `/audit` | GET | Cognito (manager) | Lista audit trail con filtri opzionali (`?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=50`) |
+| `/audit/actor/{actor}` | GET | Cognito (manager) | Audit trail filtrato per attore (`?limit=50`) |
+| `/audit/entity/{entityType}/{entityId}` | GET | Cognito (manager) | Audit trail filtrato per entità |
 
 ---
 
