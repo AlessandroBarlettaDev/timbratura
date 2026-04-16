@@ -366,7 +366,6 @@ async function getUltimaTimbratura(userId: string) {
   const result = await dynamo.send(new QueryCommand({
     TableName:              TIMBRATURE_TABLE,
     KeyConditionExpression: 'userId = :uid',
-    ExpressionAttributeNames:  { '#ts': 'timestamp' },
     ExpressionAttributeValues: marshall({ ':uid': userId }),
     ScanIndexForward: false,
     Limit:            1,
