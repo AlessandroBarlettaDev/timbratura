@@ -4,7 +4,7 @@ import { NgTemplateOutlet, TitleCasePipe, DecimalPipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/user-auth.service';
 
-type Section = 'dashboard' | 'utenti' | 'stazioni' | 'richieste';
+type Section = 'dashboard' | 'utenti' | 'stazioni' | 'richieste' | 'audit';
 
 @Component({
   selector: 'app-dashboard-manager',
@@ -81,6 +81,14 @@ export class DashboardManager implements OnInit {
   meseSelezionato: number | null = new Date().getMonth() + 1;
   readonly mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
 
+  // ─── Audit Trail ──────────────────────────────────────────────────────────
+  auditRecords:       any[] = [];
+  auditLoading              = false;
+  auditFilterActor: string | null = null;
+  auditFilterEntity: { type: string; id: string } | null = null;
+  auditDataInizio           = new Date(Date.now() - 7 * 24 * 3600_000).toISOString().split('T')[0];
+  auditDataFine             = new Date().toISOString().split('T')[0];
+
   constructor(private apiService: ApiService, public authService: AuthService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() { this.loadDashboard(); }
@@ -97,6 +105,7 @@ export class DashboardManager implements OnInit {
     if (section === 'utenti'    && this.utenti.length    === 0) this.loadUtenti();
     if (section === 'stazioni'  && this.stazioni.length  === 0) this.loadStazioni();
     if (section === 'richieste') this.loadRichieste();
+    if (section === 'audit') this.loadAuditTrail();
   }
 
   // Apre il profilo del manager loggato nella sezione utenti
@@ -674,6 +683,31 @@ export class DashboardManager implements OnInit {
     link.download = `timbrature-${slug}-${this.annoSelezionato}${mm}.xls`;
     link.click();
     URL.revokeObjectURL(link.href);
+  }
+
+
+  // ─── Audit Trail ──────────────────────────────────────────────────────────
+
+  loadAuditTrail() {
+    this.auditLoading  = true;
+    this.auditRecords  = [];
+    const params = new URLSearchParams({
+      from:  this.auditDataInizio,
+      to:    this.auditDataFine,
+      limit: '100',
+    });
+    this.apiService.getAuditTrail(params.toString()).subscribe({
+      next: (data) => {
+        this.auditRecords = data.records || [];
+        this.auditLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Errore caricamento audit trail:', err);
+        this.auditLoading = false;
+        this.cdr.detectChanges();
+      },
+    });
   }
 
 
