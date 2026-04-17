@@ -24,6 +24,9 @@
       <button class="sidebar-user-btn" (click)="apriProfilo()">
         {{ authService.utente()?.nome }} {{ authService.utente()?.cognome }}
       </button>
+      <button class="btn-theme" (click)="themeService.toggle()">
+        {{ themeService.isDark() ? '☀ Chiaro' : '☾ Scuro' }}
+      </button>
       <button class="btn-logout" (click)="authService.logout()">Logout</button>
     </div>
   </aside>
@@ -144,7 +147,7 @@
           </div>
         </div>
         <!-- ── Dettagli utente (collassabile) ── -->
-        <div style="margin-top:16px; border-top:1px solid #f3f4f6; padding-top:16px;">
+        <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:16px;">
           <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" (click)="dettagliUtenteOpen = !dettagliUtenteOpen">
             <h3 class="panel-title" style="font-size:15px; margin:0;">Dettagli</h3>
             <span style="font-size:13px; color:#9ca3af; transition:transform 0.2s; display:inline-block;"
@@ -194,7 +197,7 @@
         </div>
 
         <!-- ── Contratto (collassabile) ── -->
-        <div style="margin-top:16px; border-top:1px solid #f3f4f6; padding-top:16px;">
+        <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:16px;">
           <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" (click)="contrattoOpen = !contrattoOpen">
             <h3 class="panel-title" style="font-size:15px; margin:0;">Contratto</h3>
             <span style="font-size:13px; color:#9ca3af; transition:transform 0.2s; display:inline-block;"
@@ -253,7 +256,7 @@
           }
         </div>
 
-        <div style="margin-top:16px; border-top:1px solid #f3f4f6; padding-top:4px;">
+        <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:4px;">
           <ng-container *ngTemplateOutlet="tabellaTimbrature"></ng-container>
         </div>
       }
@@ -379,7 +382,7 @@
         <button class="btn-detail-action" (click)="loadAuditTrail()">↻ Aggiorna</button>
       </div>
 
-      <div style="margin-bottom:20px; padding:16px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;">
+      <div style="margin-bottom:20px; padding:16px; background:var(--bg); border-radius:8px; border:1px solid var(--border);">
         <h3 style="margin-top:0; margin-bottom:12px; font-size:14px; font-weight:600; color:#374151;">Filtri</h3>
         <div style="display:grid; grid-template-columns:auto auto auto 1fr; gap:12px; align-items:center;">
           <label style="font-size:13px; color:#6b7280;">Dal:</label>

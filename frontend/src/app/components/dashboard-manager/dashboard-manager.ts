@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet, TitleCasePipe, DecimalPipe, SlicePipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/user-auth.service';
+import { ThemeService } from '../../services/theme.service';
 import { esportaExcel } from '../../utils/excel-export';
 
 type Section = 'dashboard' | 'utenti' | 'stazioni' | 'richieste' | 'audit';
@@ -96,7 +97,7 @@ export class DashboardManager implements OnInit {
   auditDataInizio           = new Date(Date.now() - 7 * 24 * 3600_000).toISOString().split('T')[0];
   auditDataFine             = new Date().toISOString().split('T')[0];
 
-  constructor(private apiService: ApiService, public authService: AuthService, private cdr: ChangeDetectorRef) {}
+  constructor(private apiService: ApiService, public authService: AuthService, private cdr: ChangeDetectorRef, public themeService: ThemeService) {}
 
   ngOnInit() { this.loadDashboard(); }
 

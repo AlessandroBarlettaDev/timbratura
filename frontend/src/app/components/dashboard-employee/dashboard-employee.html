@@ -3,10 +3,15 @@
   <!-- Top bar -->
   <div class="station-topbar">
     <span class="brand">TIMBRATURA</span>
-    <span style="font-size: 14px; font-weight: 500; color: #666;">
+    <span style="font-size: 14px; font-weight: 500; color: var(--text-2);">
       {{ authService.utente()?.nome }} {{ authService.utente()?.cognome }}
     </span>
-    <button class="btn-logout" style="width: auto; padding: 8px 20px;" (click)="authService.logout()">Logout</button>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button class="btn-theme-inline" (click)="themeService.toggle()" title="Cambia tema">
+        {{ themeService.isDark() ? '☀' : '☾' }}
+      </button>
+      <button class="btn-logout" style="width: auto; padding: 8px 20px;" (click)="authService.logout()">Logout</button>
+    </div>
   </div>
 
   <!-- Contenuto principale -->
@@ -18,7 +23,7 @@
       } @else if (profile) {
 
         <!-- ── DETTAGLI UTENTE (collassabile) ── -->
-        <div style="background: #fff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 28px 36px;">
+        <div class="emp-card" style="padding: 28px 36px;">
           <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" (click)="dettagliUtenteOpen = !dettagliUtenteOpen">
             <h2 class="panel-title" style="margin:0;">Dettagli utente</h2>
             <span style="font-size:13px; color:#9ca3af; transition:transform 0.2s; display:inline-block;"
@@ -70,7 +75,7 @@
         </div>
 
         <!-- ── CONTRATTO (collassabile) ── -->
-        <div style="background: #fff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 28px 36px;">
+        <div class="emp-card" style="padding: 28px 36px;">
           <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" (click)="contrattoOpen = !contrattoOpen">
             <h2 class="panel-title" style="margin:0;">Il mio contratto</h2>
             <span style="font-size:13px; color:#9ca3af; transition:transform 0.2s; display:inline-block;"
@@ -102,7 +107,7 @@
         </div>
 
         <!-- ── RICHIESTE ── -->
-        <div style="background: #fff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 36px;">
+        <div class="emp-card" style="padding: 36px;">
           <div class="panel-header" style="margin-bottom: 16px;">
             <h3 class="panel-title" style="font-size: 16px;">Le mie richieste</h3>
             <button class="btn-detail-action btn-detail-primary" (click)="openRequestModal()">+ Nuova richiesta</button>
@@ -160,7 +165,7 @@
         </div>
 
         <!-- ── TIMBRATURE ── -->
-        <div style="background: #fff; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 36px;">
+        <div class="emp-card" style="padding: 36px;">
           <div class="panel-header" style="margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
             <h3 class="panel-title" style="font-size: 16px;">Le mie timbrature</h3>
             <div class="timbrature-toolbar">

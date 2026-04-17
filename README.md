@@ -122,7 +122,7 @@ timbratura/
 │       │   ├── dashboard-employee/ # Dashboard dipendente
 │       │   ├── station/            # Schermata stazione con QR
 │       │   └── timbratura/         # Flusso timbratura (QR scan)
-│       ├── services/               # API, Auth, StationAuth
+│       ├── services/               # API, Auth, StationAuth, Theme
 │       └── guards/                 # authGuard, onboardingGuard
 │
 └── deploy.sh                   # Script deploy completo o solo frontend
@@ -211,12 +211,15 @@ Il flusso in due fasi (anteprima → conferma) permette al dipendente di verific
 
 ### 5.7 Dashboard Manager
 
-Quattro sezioni accessibili dalla sidebar:
+Cinque sezioni accessibili dalla sidebar:
 
 - **Dashboard** — riepilogo odierno: presenti per stazione, badge attiva/inattiva (stazione inattiva se non ha generato QR negli ultimi 6 minuti), lista timbrature del giorno
 - **Utenti** — lista con badge presenza in tempo reale; dettaglio utente con sezioni collassabili (Dettagli e Contratto, default chiuse); anagrafica completa; gestione contratto con CRUD (tipo, date, ore settimanali, retribuzione lorda/netta, CCNL, ferie, permessi ROL, ecc.); timbrature visualizzate per turno (entrata + uscita abbinate con durata), statistiche per periodo (ore lavorate, giorni lavorati, media giornaliera); modifica, eliminazione; export Excel con 4 sezioni: anagrafica, dati contrattuali, analisi del periodo (ore attese vs lavorate, straordinari, stima stipendio) e tabella turni con colonna ore decimali
 - **Stazioni** — lista con stato, dettaglio (coordinate GPS, ultima attività), creazione (codice auto-generato `STZ-XXXXXX`), eliminazione
 - **Richieste** — lista richieste di timbratura manuale pendenti con badge contatore in sidebar; approvazione con modale di contesto (mostra le timbrature già presenti per quel giorno); rifiuto con motivo obbligatorio
+- **Audit Trail** — log completo delle operazioni sensibili con filtri per periodo; visualizzazione di attore, ruolo, azione, entità e dettagli
+
+Il footer della sidebar espone il pulsante **☾ Scuro / ☀ Chiaro** per alternare tra tema chiaro e scuro (vedi §11).
 
 ### 5.8 Dashboard Employee
 
@@ -226,6 +229,8 @@ Pagina unica a scroll con sezioni collassabili:
 - **Il mio contratto** — (default chiuso) visualizzazione in sola lettura del contratto attivo: tipo, date, ore settimanali, retribuzione, CCNL, ferie, permessi ROL; messaggio se nessun contratto registrato
 - **Le mie richieste** — storico richieste inviate con stato (In attesa / Approvata / Rifiutata) e motivo del rifiuto; modale per inviare nuove richieste
 - **Le mie timbrature** — storico visualizzato per turno: ogni riga mostra Data / Entrata / Uscita / Durata / Sede; navigazione per mese/anno o anno intero; statistiche per periodo (ore lavorate, giorni lavorati, media giornaliera); export Excel con 4 sezioni: anagrafica, dati contrattuali, analisi del periodo (ore attese vs lavorate, straordinari, stima stipendio) e tabella turni con colonna ore decimali
+
+Il pulsante **☾ / ☀** nella topbar permette di alternare tra tema chiaro e scuro (vedi §11).
 
 ### 5.9 Richieste di timbratura manuale
 
@@ -512,6 +517,9 @@ Ogni operazione sensibile scrive una voce nella tabella `AuditLog`. Le operazion
 La funzione `writeAudit()` in `audit.ts` è condivisa tra tutti i Lambda. Ogni voce include: chi ha agito (`actor` + `actorRole`), l'azione (`action`), l'entità coinvolta (`entityType` + `entityId`), il timestamp e dettagli opzionali in JSON. Il PK è `<ISO 8601>#<4 byte hex>` — la parte ISO garantisce ordine cronologico naturale; il suffisso hex evita collisioni in caso di eventi concorrenti. Le voci scadono automaticamente dopo 5 anni tramite TTL DynamoDB.
 
 In ambiente di sviluppo (`dev`) l'audit è **disabilitato** tramite la variabile d'ambiente `AUDIT_ENABLED=false`, impostata automaticamente da CDK su tutte le Lambda quando si deploya con suffisso dev. Questo evita che le sessioni di test generino centinaia di scritture superflue su DynamoDB, contenendo i costi entro il free tier. In produzione la variabile è `true` e il comportamento è invariato.
+
+**Tema chiaro/scuro**
+Il frontend supporta la modalità scura tramite CSS custom properties e un attributo `data-theme="dark"` sull'elemento `<html>`. Il `ThemeService` gestisce tre aspetti: (1) lettura della preferenza salvata in `localStorage`; (2) fallback automatico alla preferenza di sistema (`prefers-color-scheme`) al primo accesso; (3) persistenza della scelta tra sessioni. Il toggle è accessibile dalla sidebar del manager e dalla topbar del dashboard dipendente. Tutte le variabili di colore (`--bg`, `--surface`, `--border`, `--accent`, ecc.) sono ridefinite nel blocco `[data-theme="dark"]` in `styles.css`.
 
 **GPS obbligatorio**
 Se la stazione ha coordinate GPS configurate, il dipendente deve avere il GPS attivo e trovarsi entro 200 metri. Se la stazione non ha coordinate (non ancora configurate), la validazione è disabilitata. Le coordinate della stazione vengono aggiornate automaticamente dal dispositivo stazione ad ogni rinnovo QR.

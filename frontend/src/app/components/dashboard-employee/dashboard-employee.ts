@@ -1,8 +1,9 @@
-import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TitleCasePipe, DecimalPipe } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/user-auth.service';
+import { ThemeService } from '../../services/theme.service';
 import { esportaExcel } from '../../utils/excel-export';
 
 @Component({
@@ -41,7 +42,10 @@ export class DashboardEmployee implements OnInit {
   resetBiometriaNote      = '';
   resetBiometriaError: string | null = null;
 
-  constructor(private apiService: ApiService, public authService: AuthService, private cdr: ChangeDetectorRef) {}
+  private apiService  = inject(ApiService);
+  public authService  = inject(AuthService);
+  private cdr         = inject(ChangeDetectorRef);
+  public themeService = inject(ThemeService);
 
   ngOnInit() {
     // Aspetta che la sessione Cognito sia caricata prima di caricare il profilo
