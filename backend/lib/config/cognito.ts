@@ -100,6 +100,7 @@ export class CognitoConfig extends Construct {
             description: 'Employee users'
         });
 
+        // Output dei valori importanti come UserPoolId e ClientId per poterli utilizzare nel frontend e nelle Lambda
         new cdk.CfnOutput(this, 'UserPoolId', {
             value: this.userPool.userPoolId
         });

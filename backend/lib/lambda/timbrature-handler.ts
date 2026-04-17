@@ -74,8 +74,7 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   return json(404, 'Rotta non trovata');
 };
 
-// --- POST /timbrature/anteprima ---
-// Verifica QR + biometria, calcola tipo, salva pending-entry (TTL 5 min). Non salva ancora.
+// --- POST /timbrature/anteprima --- Verifica QR + biometria, calcola tipo, salva pending-entry (TTL 5 min). Non salva ancora.
 async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
@@ -131,8 +130,7 @@ async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
   return json(200, { tipo, confirmToken, nome, cognome });
 }
 
-// --- POST /timbrature/conferma ---
-// Legge la pending-entry, salva la timbratura definitiva con il realUserId, elimina la pending.
+// --- POST /timbrature/conferma --- Legge la pending-entry, salva la timbratura definitiva con il realUserId, elimina la pending.
 async function confermaTimbratura(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
@@ -237,8 +235,7 @@ async function registraTimbratura(event: APIGatewayProxyEvent) {
   return json(200, { tipo, timestamp, userId, nome, cognome });
 }
 
-// --- GET /timbrature/dashboard ---
-// Restituisce le timbrature di oggi aggregate per stazione, con il conteggio dei presenti.
+// --- GET /timbrature/dashboard --- Restituisce le timbrature di oggi aggregate per stazione, con il conteggio dei presenti.
 async function getDashboard() {
   const oggi = new Date().toISOString().slice(0, 10);
   const ieri = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);

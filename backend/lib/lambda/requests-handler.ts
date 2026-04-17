@@ -265,6 +265,7 @@ async function rifiutaRequest(requestId: string, event: APIGatewayProxyEvent, cl
   return json(200, { message: 'Richiesta rifiutata' });
 }
 
+// --- Funzione di utilità per recuperare una richiesta per ID ---
 async function getItem(requestId: string) {
   const result = await dynamo.send(new GetItemCommand({
     TableName: REQUESTS_TABLE,

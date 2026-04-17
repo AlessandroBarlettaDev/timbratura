@@ -202,6 +202,7 @@ export async function verifyAssertion(assertion: any, sessionId: string): Promis
   return credRecord.userId;
 }
 
+// Wrapper per l'invocazione diretta da timbrature-handler, che passa assertion e sessionId nel body per verificare l'identità del dipendente durante la timbratura.
 async function completeAuthentication(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
   const { assertion, sessionId } = JSON.parse(event.body);
@@ -214,6 +215,8 @@ async function completeAuthentication(event: APIGatewayProxyEvent) {
 }
 
 // --- Helpers ---
+// Recupera tutte le credenziali associate a un userId (in questo caso, dovrebbe esserci al massimo una credential per utente, ma la funzione è generica)
+// Utilizzata durante la registrazione per escludere le credenziali esistenti e durante l'autenticazione per recuperare la chiave pubblica.
 async function getCredentialsByUser(userId: string) {
   const result = await dynamo.send(new QueryCommand({
     TableName: TABLE_NAME,
@@ -226,6 +229,8 @@ async function getCredentialsByUser(userId: string) {
   return (result.Items ?? []).map((i: any) => unmarshall(i));
 }
 
+// Recupera un item generico per credentialId (usato sia per challenge che per credenziali)
+// Utilizzato per recuperare la challenge durante la registrazione e l'autenticazione, e per recuperare la credenziale pubblica durante l'autenticazione.
 async function getItem(credentialId: string) {
   const result = await dynamo.send(new GetItemCommand({
     TableName: TABLE_NAME,
@@ -234,6 +239,7 @@ async function getItem(credentialId: string) {
   return result.Item ? unmarshall(result.Item) : null;
 }
 
+// Helper per formattare le risposte JSON con CORS
 function json(status: number, body: any) {
   return {
     statusCode: status,

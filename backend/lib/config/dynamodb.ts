@@ -24,9 +24,11 @@ export class DynamoDbConfig extends Construct {
   constructor(scope: Construct, id: string, suffix: string = '') {
     super(scope, id);
 
+    // Creazione della tabella per le credenziali WebAuthn
     this.webAuthnTable = new dynamodb.Table(this, 'WebAuthnCredentials', {
       tableName:    `WebAuthnCredentials${suffix}`,
       partitionKey: { name: 'credentialId', type: dynamodb.AttributeType.STRING },
+      billingMode:  dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
     this.webAuthnTable.addGlobalSecondaryIndex({
@@ -35,12 +37,14 @@ export class DynamoDbConfig extends Construct {
     });
     new cdk.CfnOutput(this, 'WebAuthnTableName', { value: this.webAuthnTable.tableName });
 
+    // Creazione della tabella per le stazioni di timbratura
     this.stazioniTable = new dynamodb.Table(this, 'Stazioni', {
       tableName: `Stazioni${suffix}`,
 
       // stationId è la chiave primaria — UUID generato alla creazione
       partitionKey: { name: 'stationId', type: dynamodb.AttributeType.STRING },
 
+      billingMode:  dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
@@ -62,6 +66,7 @@ export class DynamoDbConfig extends Construct {
       partitionKey: { name: 'userId',    type: dynamodb.AttributeType.STRING },
       sortKey:      { name: 'timestamp', type: dynamodb.AttributeType.STRING },
 
+      billingMode:  dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
@@ -80,6 +85,7 @@ export class DynamoDbConfig extends Construct {
     this.requestsTable = new dynamodb.Table(this, 'Requests', {
       tableName:    `Requests${suffix}`,
       partitionKey: { name: 'requestId', type: dynamodb.AttributeType.STRING },
+      billingMode:  dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
@@ -102,6 +108,7 @@ export class DynamoDbConfig extends Construct {
     this.contractsTable = new dynamodb.Table(this, 'Contracts', {
       tableName:    `Contracts${suffix}`,
       partitionKey: { name: 'contractId', type: dynamodb.AttributeType.STRING },
+      billingMode:  dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
@@ -119,6 +126,7 @@ export class DynamoDbConfig extends Construct {
       tableName:    `AuditLog${suffix}`,
       partitionKey: { name: 'auditId', type: dynamodb.AttributeType.STRING },
       timeToLiveAttribute: 'expiresAt',
+      billingMode:  dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 

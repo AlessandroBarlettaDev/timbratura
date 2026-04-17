@@ -511,6 +511,8 @@ Ogni operazione sensibile scrive una voce nella tabella `AuditLog`. Le operazion
 
 La funzione `writeAudit()` in `audit.ts` è condivisa tra tutti i Lambda. Ogni voce include: chi ha agito (`actor` + `actorRole`), l'azione (`action`), l'entità coinvolta (`entityType` + `entityId`), il timestamp e dettagli opzionali in JSON. Il PK è `<ISO 8601>#<4 byte hex>` — la parte ISO garantisce ordine cronologico naturale; il suffisso hex evita collisioni in caso di eventi concorrenti. Le voci scadono automaticamente dopo 5 anni tramite TTL DynamoDB.
 
+In ambiente di sviluppo (`dev`) l'audit è **disabilitato** tramite la variabile d'ambiente `AUDIT_ENABLED=false`, impostata automaticamente da CDK su tutte le Lambda quando si deploya con suffisso dev. Questo evita che le sessioni di test generino centinaia di scritture superflue su DynamoDB, contenendo i costi entro il free tier. In produzione la variabile è `true` e il comportamento è invariato.
+
 **GPS obbligatorio**
 Se la stazione ha coordinate GPS configurate, il dipendente deve avere il GPS attivo e trovarsi entro 200 metri. Se la stazione non ha coordinate (non ancora configurate), la validazione è disabilitata. Le coordinate della stazione vengono aggiornate automaticamente dal dispositivo stazione ad ogni rinnovo QR.
 

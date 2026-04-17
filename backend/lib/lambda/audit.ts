@@ -24,7 +24,9 @@ export interface AuditEntry {
 // Scrive un record di audit in DynamoDB — best-effort: non blocca l'operazione principale in caso di errore.
 // auditId è time-sortable (ISO timestamp + hex random) per permettere query per range senza GSI aggiuntivo.
 // TTL di 5 anni per conformità art. 3 L. 689/81 (registri presenze).
+// In ambiente dev la variabile AUDIT_ENABLED=false sopprime la scrittura per ridurre i costi DynamoDB.
 export async function writeAudit(tableName: string, entry: AuditEntry): Promise<void> {
+  if (process.env.AUDIT_ENABLED === 'false') return;
   const timestamp = new Date().toISOString();
   const auditId   = `${timestamp}#${crypto.randomBytes(4).toString('hex')}`;
   const expiresAt = Math.floor(Date.now() / 1000) + 5 * 365 * 24 * 3600;

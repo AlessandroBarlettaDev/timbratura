@@ -16,7 +16,8 @@ export class BackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: BackendStackProps) {
     super(scope, id, props);
 
-    const suffix = props?.deployEnv ? `-${props.deployEnv}` : '';
+    const suffix      = props?.deployEnv ? `-${props.deployEnv}` : '';
+    const auditEnabled = props?.deployEnv ? 'false' : 'true'; // audit disabilitato in dev per ridurre costi DynamoDB
 
     // Hosting S3 + CloudFront — creato prima di Cognito per passare l'appUrl al template email
     const hosting = new HostingConfig(this, 'Hosting');
@@ -37,6 +38,7 @@ export class BackendStack extends cdk.Stack {
         USER_POOL_ID:        cognito.userPool.userPoolId,
         WEBAUTHN_TABLE_NAME: dynamo.webAuthnTable.tableName,
         AUDIT_TABLE_NAME:    dynamo.auditLogTable.tableName,
+        AUDIT_ENABLED:       auditEnabled,
       },
     });
 
@@ -82,8 +84,9 @@ export class BackendStack extends cdk.Stack {
         STAZIONI_TABLE_NAME:   dynamo.stazioniTable.tableName,
         TIMBRATURE_TABLE_NAME: dynamo.timbratureTable.tableName,
         AUDIT_TABLE_NAME:      dynamo.auditLogTable.tableName,
-        JWT_SECRET: jwtSecret,
-        APP_URL:    appUrl,
+        JWT_SECRET:            jwtSecret,
+        APP_URL:               appUrl,
+        AUDIT_ENABLED:         auditEnabled,
       },
     });
     dynamo.stazioniTable.grantReadWriteData(stazioniHandler);
@@ -120,6 +123,7 @@ export class BackendStack extends cdk.Stack {
         CONTRACTS_TABLE_NAME: dynamo.contractsTable.tableName,
         USER_POOL_ID:         cognito.userPool.userPoolId,
         AUDIT_TABLE_NAME:     dynamo.auditLogTable.tableName,
+        AUDIT_ENABLED:        auditEnabled,
       },
     });
     dynamo.contractsTable.grantReadWriteData(contractsHandler);
@@ -137,6 +141,7 @@ export class BackendStack extends cdk.Stack {
         WEBAUTHN_TABLE_NAME:   dynamo.webAuthnTable.tableName,
         USER_POOL_ID:          cognito.userPool.userPoolId,
         AUDIT_TABLE_NAME:      dynamo.auditLogTable.tableName,
+        AUDIT_ENABLED:         auditEnabled,
       },
     });
     dynamo.requestsTable.grantReadWriteData(requestsHandler);
