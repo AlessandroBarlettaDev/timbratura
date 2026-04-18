@@ -12,7 +12,7 @@
     @if (step === 'biometrica') {
       <p style="font-size: 48px; margin-bottom: 12px;">👆</p>
       <h2 style="margin-bottom: 12px;">Conferma identità</h2>
-      <p style="color: #666; font-size: 14px; margin-bottom: 28px;">
+      <p style="color:var(--text-2); font-size: 14px; margin-bottom: 28px;">
         Usa impronta digitale o Face ID per verificare la tua identità
       </p>
       @if (errore) { <p class="modal-error">{{ errore }}</p> }
@@ -25,9 +25,9 @@
     @if (step === 'conferma') {
       <p style="font-size: 48px; margin-bottom: 16px;">{{ tipo === 'entrata' ? '🟢' : '🔴' }}</p>
       <h2 style="margin-bottom: 4px; text-transform: capitalize;">{{ tipo }}</h2>
-      <p style="color: #666; font-size: 14px; margin-bottom: 4px;">{{ nome }} {{ cognome }}</p>
+      <p style="color:var(--text-2); font-size: 14px; margin-bottom: 4px;">{{ nome }} {{ cognome }}</p>
       @if (durataMinuti != null) {
-        <p style="color: #333; font-size: 15px; font-weight: 600; margin-bottom: 8px;">
+        <p style="color:var(--text); font-size: 15px; font-weight: 600; margin-bottom: 8px;">
           Durata: {{ durataLabel }}
         </p>
       } @else {
@@ -39,7 +39,7 @@
       @if (errore) { <p class="modal-error">{{ errore }}</p> }
       <button
         class="btn-login"
-        [style.background]="tipo === 'entrata' ? '#2e7d32' : '#c62828'"
+        [class]="'btn-login ' + (tipo === 'entrata' ? 'btn-login-success' : 'btn-login-danger')"
         [disabled]="caricamento"
         (click)="timbra()">
         {{ caricamento ? 'Attendere...' : tipo === 'entrata' ? 'Registra entrata' : 'Registra uscita' }}
@@ -50,9 +50,9 @@
     @if (step === 'successo') {
       <p style="font-size: 48px; margin-bottom: 12px;">✅</p>
       <h2 style="margin-bottom: 8px;">Timbratura registrata</h2>
-      <p style="color: #666; font-size: 14px; margin-bottom: 4px; text-transform: capitalize;">{{ tipo }} — {{ nome }} {{ cognome }}</p>
+      <p style="color:var(--text-2); font-size: 14px; margin-bottom: 4px; text-transform: capitalize;">{{ tipo }} — {{ nome }} {{ cognome }}</p>
       @if (durataMinuti != null) {
-        <p style="color: #333; font-size: 15px; font-weight: 600; margin-bottom: 28px;">
+        <p style="color:var(--text); font-size: 15px; font-weight: 600; margin-bottom: 28px;">
           Durata: {{ durataLabel }}
         </p>
       } @else {
@@ -67,7 +67,7 @@
     @if (step === 'errore') {
       <p style="font-size: 48px; margin-bottom: 12px;">⚠️</p>
       <h2 style="margin-bottom: 12px;">Impossibile timbrare</h2>
-      <p style="color: #666; font-size: 14px; margin-bottom: 28px;">{{ errore }}</p>
+      <p style="color:var(--text-2); font-size: 14px; margin-bottom: 28px;">{{ errore }}</p>
       <button class="btn-login" (click)="vaiAvanti()">
         {{ isLoggedIn ? 'Vai alla dashboard' : 'Torna al login' }}
       </button>

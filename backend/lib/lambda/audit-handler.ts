@@ -51,27 +51,39 @@ async function getAuditTrail(params?: Record<string, string>) {
   const limit    = Math.min(parseInt(params?.limit ?? '50'), 100);
   const lastKey  = params?.lastKey ? JSON.parse(Buffer.from(params.lastKey, 'base64').toString()) : undefined;
 
-  // Scan con FilterExpression per range di date
-  const result = await dynamo.send(new ScanCommand({
-    TableName: AUDIT_TABLE,
-    FilterExpression: '#ts BETWEEN :from AND :to',
-    ExpressionAttributeNames:  { '#ts': 'timestamp' },
-    ExpressionAttributeValues: marshall({
-      ':from': new Date(fromDate).toISOString().split('T')[0],
-      ':to':   new Date(toDate).toISOString().split('T')[0],
-    }),
-    Limit: limit,
-    ExclusiveStartKey: lastKey,
-  }));
+  // Scan con FilterExpression per range di date.
+  // Usiamo timestamp ISO completi per il confronto (il campo 'timestamp' è salvato come ISO 8601).
+  // Leggiamo tutta la pagina senza Limit pre-filtro (il Limit di DynamoDB si applica prima del filtro
+  // e causerebbe risultati parziali); la paginazione avviene tramite ExclusiveStartKey.
+  const items: any[] = [];
+  let lastEvaluatedKey = lastKey;
 
-  const items = (result.Items ?? []).map(i => unmarshall(i));
-  const nextKey = result.LastEvaluatedKey 
-    ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+  do {
+    const result = await dynamo.send(new ScanCommand({
+      TableName: AUDIT_TABLE,
+      FilterExpression: '#ts BETWEEN :from AND :to',
+      ExpressionAttributeNames:  { '#ts': 'timestamp' },
+      ExpressionAttributeValues: marshall({
+        ':from': `${fromDate}T00:00:00.000Z`,
+        ':to':   `${toDate}T23:59:59.999Z`,
+      }),
+      ExclusiveStartKey: lastEvaluatedKey,
+    }));
+
+    items.push(...(result.Items ?? []).map(i => unmarshall(i)));
+    lastEvaluatedKey = result.LastEvaluatedKey;
+
+    if (items.length >= limit) break;
+  } while (lastEvaluatedKey);
+
+  const pageItems = items.slice(0, limit);
+  const nextKey = lastEvaluatedKey
+    ? Buffer.from(JSON.stringify(lastEvaluatedKey)).toString('base64')
     : null;
 
   return json(200, {
-    records: items,
-    count: items.length,
+    records: pageItems,
+    count: pageItems.length,
     nextKey,
     from: fromDate,
     to: toDate,

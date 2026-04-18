@@ -15,7 +15,7 @@
     <button class="nav-item" [class.active]="activeSection === 'richieste'"  (click)="setSection('richieste')">
       Richieste
       @if (richiestePendentiCount > 0) {
-        <span style="display:inline-block; background:#ef4444; color:#fff; border-radius:999px; font-size:11px; font-weight:700; padding:1px 7px; margin-left:8px;">{{ richiestePendentiCount }}</span>
+        <span style="display:inline-block; background:var(--danger); color:var(--bg); border-radius:999px; font-size:11px; font-weight:700; padding:1px 7px; margin-left:8px;">{{ richiestePendentiCount }}</span>
       }
     </button>
     <button class="nav-item" [class.active]="activeSection === 'audit'"     (click)="setSection('audit')">Audit Trail</button>
@@ -90,7 +90,7 @@
                 </tbody>
               </table>
             } @else {
-              <p style="color:#aaa; font-size:13px; margin-top:12px;">Nessuna timbratura oggi.</p>
+              <p style="color:var(--text-m); font-size:13px; margin-top:12px;">Nessuna timbratura oggi.</p>
             }
           </div>
         }
@@ -143,14 +143,13 @@
           <h2 class="panel-title">{{ selectedUser.given_name }} {{ selectedUser.family_name }}</h2>
           <div class="detail-actions">
             <button class="btn-detail-action" (click)="openEditModal()">Modifica</button>
-            <button class="btn-detail-action btn-detail-danger" (click)="showDeleteConfirm = true">Elimina</button>
           </div>
         </div>
         <!-- ── Dettagli utente (collassabile) ── -->
         <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:16px;">
           <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" (click)="dettagliUtenteOpen = !dettagliUtenteOpen">
             <h3 class="panel-title" style="font-size:15px; margin:0;">Dettagli</h3>
-            <span style="font-size:13px; color:#9ca3af; transition:transform 0.2s; display:inline-block;"
+            <span style="font-size:13px; color:var(--text-m); transition:transform 0.2s; display:inline-block;"
                   [style.transform]="dettagliUtenteOpen ? 'rotate(180deg)' : 'rotate(0deg)'">▼</span>
           </div>
           @if (dettagliUtenteOpen) {
@@ -167,7 +166,7 @@
                   {{ resetPasswordLoading ? '...' : 'Invia password temporanea' }}
                 </button>
                 @if (resetPasswordMessage) {
-                  <span style="font-size:12px; color:#16a34a;">{{ resetPasswordMessage }}</span>
+                  <span style="font-size:12px; color:var(--success);">{{ resetPasswordMessage }}</span>
                 }
               </span>
               <span class="detail-label">Biometria registrata</span>
@@ -181,7 +180,7 @@
                   </button>
                 }
                 @if (resetBiometricsMessage) {
-                  <span style="font-size:12px; color:#16a34a;">{{ resetBiometricsMessage }}</span>
+                  <span style="font-size:12px; color:var(--success);">{{ resetBiometricsMessage }}</span>
                 }
               </span>
               <span class="detail-label">Presente ora</span>
@@ -200,7 +199,7 @@
         <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:16px;">
           <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" (click)="contrattoOpen = !contrattoOpen">
             <h3 class="panel-title" style="font-size:15px; margin:0;">Contratto</h3>
-            <span style="font-size:13px; color:#9ca3af; transition:transform 0.2s; display:inline-block;"
+            <span style="font-size:13px; color:var(--text-m); transition:transform 0.2s; display:inline-block;"
                   [style.transform]="contrattoOpen ? 'rotate(180deg)' : 'rotate(0deg)'">▼</span>
           </div>
           @if (contrattoOpen) {
@@ -228,7 +227,7 @@
               </div>
               @if (contratti.length > 1) {
                 <details style="margin-top:16px;">
-                  <summary style="cursor:pointer; font-size:13px; color:#6b7280;">Storico contratti ({{ contratti.length - 1 }} precedenti)</summary>
+                  <summary style="cursor:pointer; font-size:13px; color:var(--text-2);">Storico contratti ({{ contratti.length - 1 }} precedenti)</summary>
                   <table class="data-table" style="margin-top:10px;">
                     <thead><tr><th>Tipo</th><th>Inizio</th><th>Fine</th><th></th></tr></thead>
                     <tbody>
@@ -249,7 +248,7 @@
               }
             } @else {
               <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px;">
-                <p style="margin:0; color:#9ca3af; font-size:14px;">Nessun contratto registrato.</p>
+                <p style="margin:0; color:var(--text-m); font-size:14px;">Nessun contratto registrato.</p>
                 <button class="btn-detail-action btn-detail-primary" (click)="$event.stopPropagation(); openNuovoContrattoModal()">+ Nuovo contratto</button>
               </div>
             }
@@ -291,7 +290,7 @@
                 <td>{{ r.tipoRichiesta === 'reset_biometria' ? '—' : r.data }}</td>
                 <td>
                   @if (r.tipoRichiesta === 'reset_biometria') {
-                    <span class="badge" style="background:#ede9fe; color:#6d28d9;">Reset biometria</span>
+                    <span class="badge badge-purple">Reset biometria</span>
                   } @else {
                     <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
                       {{ r.tipo | titlecase }}
@@ -383,12 +382,12 @@
       </div>
 
       <div style="margin-bottom:20px; padding:16px; background:var(--bg); border-radius:8px; border:1px solid var(--border);">
-        <h3 style="margin-top:0; margin-bottom:12px; font-size:14px; font-weight:600; color:#374151;">Filtri</h3>
+        <h3 style="margin-top:0; margin-bottom:12px; font-size:14px; font-weight:600; color:var(--text);">Filtri</h3>
         <div style="display:grid; grid-template-columns:auto auto auto 1fr; gap:12px; align-items:center;">
-          <label style="font-size:13px; color:#6b7280;">Dal:</label>
-          <input type="date" [(ngModel)]="auditDataInizio" style="padding:8px; border:1px solid #e5e7eb; border-radius:6px; font-size:13px;">
-          <label style="font-size:13px; color:#6b7280;">Al:</label>
-          <input type="date" [(ngModel)]="auditDataFine" style="padding:8px; border:1px solid #e5e7eb; border-radius:6px; font-size:13px;">
+          <label style="font-size:13px; color:var(--text-2);">Dal:</label>
+          <input type="date" [(ngModel)]="auditDataInizio" style="padding:8px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--surface); color:var(--text);">
+          <label style="font-size:13px; color:var(--text-2);">Al:</label>
+          <input type="date" [(ngModel)]="auditDataFine" style="padding:8px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--surface); color:var(--text);">
           <button class="btn-detail-action" (click)="loadAuditTrail()" style="grid-column:1/-1; justify-self:start; margin-top:8px;">Applica filtri</button>
         </div>
       </div>
@@ -417,9 +416,9 @@
                     {{ record.actorRole | titlecase }}
                   </span>
                 </td>
-                <td style="font-size:12px; color:#6b7280;">{{ record.action }}</td>
+                <td style="font-size:12px; color:var(--text-2);">{{ record.action }}</td>
                 <td><span class="badge badge-active">{{ record.entityType | titlecase }}</span></td>
-                <td style="font-size:12px; color:#6b7280; max-width:200px; white-space:normal; word-break:break-word;">
+                <td style="font-size:12px; color:var(--text-2); max-width:200px; white-space:normal; word-break:break-word;">
                   {{ record.details ? (record.details | slice:0:50) + '...' : '—' }}
                 </td>
               </tr>
@@ -520,13 +519,13 @@
       <h2>Conferma approvazione</h2>
 
       @if (approvaModalRichiesta?.tipoRichiesta === 'reset_biometria') {
-        <p style="color:#666; margin-bottom:16px;">
+        <p style="color:var(--text-2); margin-bottom:16px;">
           Stai per resettare la biometria di <strong>{{ approvaModalRichiesta?.nomeUtente }}</strong>.
           Tutte le credenziali WebAuthn registrate verranno cancellate e al prossimo login l'utente dovrà registrare di nuovo il dispositivo.
         </p>
-        <p style="font-size:12px; color:#999; margin-bottom:20px; font-style:italic;">{{ approvaModalRichiesta?.nota }}</p>
+        <p style="font-size:12px; color:var(--text-m); margin-bottom:20px; font-style:italic;">{{ approvaModalRichiesta?.nota }}</p>
       } @else {
-        <p style="color:#666; margin-bottom:4px;">
+        <p style="color:var(--text-2); margin-bottom:4px;">
           Stai per aggiungere una timbratura manuale per <strong>{{ approvaModalRichiesta?.nomeUtente }}</strong>:
         </p>
         <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
@@ -537,7 +536,7 @@
           <span>ore {{ approvaModalRichiesta?.ora }}</span>
         </div>
 
-        <p style="font-size:13px; font-weight:600; color:#444; margin-bottom:8px;">
+        <p style="font-size:13px; font-weight:600; color:var(--text-2); margin-bottom:8px;">
           Timbrature già presenti per questo giorno:
         </p>
       }
@@ -563,14 +562,14 @@
           </tbody>
         </table>
       } @else {
-        <p style="color:#aaa; font-size:13px; margin-bottom:20px;">Nessuna timbratura presente per questo giorno.</p>
+        <p style="color:var(--text-m); font-size:13px; margin-bottom:20px;">Nessuna timbratura presente per questo giorno.</p>
       }
 
-      <p style="font-size:12px; color:#999; margin-bottom:20px; font-style:italic;">{{ approvaModalRichiesta?.nota }}</p>
+      <p style="font-size:12px; color:var(--text-m); margin-bottom:20px; font-style:italic;">{{ approvaModalRichiesta?.nota }}</p>
 
       @if (approvaModalAltreRichieste.length > 0) {
-        <div style="background:#fef9c3; border:1px solid #fde047; border-radius:10px; padding:12px 16px; margin-bottom:20px;">
-          <p style="font-size:13px; font-weight:600; color:#854d0e; margin-bottom:8px;">
+        <div style="background:var(--warning-bg); border:1px solid var(--warning); border-radius:10px; padding:12px 16px; margin-bottom:20px;">
+          <p style="font-size:13px; font-weight:600; color:var(--warning); margin-bottom:8px;">
             ⚠ Attenzione: ci sono altre richieste pendenti di {{ approvaModalRichiesta?.nomeUtente }} per lo stesso giorno.
             Approva prima quella con l'ora più bassa.
           </p>
@@ -605,7 +604,7 @@
   <div class="modal-overlay" (click)="showRifiutaModal = false">
     <div class="modal-card" (click)="$event.stopPropagation()">
       <h2>Rifiuta richiesta</h2>
-      <p style="color:#666; margin-bottom:16px;">
+      <p style="color:var(--text-2); margin-bottom:16px;">
         Stai rifiutando la richiesta di <strong>{{ richiestaSelezionata?.nomeUtente }}</strong>:
         @if (richiestaSelezionata?.tipoRichiesta === 'reset_biometria') {
           Reset biometria.
@@ -615,7 +614,7 @@
       </p>
       <div class="form-group">
         <label>Motivo del rifiuto *</label>
-        <textarea [(ngModel)]="motivoRifiuto" rows="3" placeholder="Spiega il motivo del rifiuto..." style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+        <textarea [(ngModel)]="motivoRifiuto" rows="3" placeholder="Spiega il motivo del rifiuto..." style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; resize:vertical; background:var(--surface); color:var(--text);"></textarea>
       </div>
       @if (rifiutaModalError) { <p class="modal-error">{{ rifiutaModalError }}</p> }
       <button class="btn-logout" (click)="confermaRifiuto()">Conferma rifiuto</button>
@@ -635,6 +634,8 @@
       <div class="form-group-inline"><label>Codice fiscale</label>    <input type="text" [(ngModel)]="editUser.codice_fiscale" (input)="editUser.codice_fiscale = editUser.codice_fiscale.toUpperCase()" placeholder="Codice fiscale"></div>
       <button class="btn-login" (click)="saveEdit()">Salva modifiche</button>
       <button class="btn-forgot" (click)="showEditModal = false">Annulla</button>
+      <hr style="border:none; border-top:1px solid var(--border); margin:16px 0 12px;">
+      <button class="btn-detail-action btn-detail-danger" style="width:100%;" (click)="showEditModal = false; showDeleteConfirm = true">Elimina dipendente</button>
     </div>
   </div>
 }
@@ -644,7 +645,7 @@
   <div class="modal-overlay" (click)="showDeleteConfirm = false">
     <div class="modal-card" style="max-width:360px; text-align:center;" (click)="$event.stopPropagation()">
       <h2>Elimina utente</h2>
-      <p style="color:#666; margin-bottom:28px;">Sei sicuro di voler eliminare <strong>{{ selectedUser.given_name }} {{ selectedUser.family_name }}</strong>? L'operazione è permanente.</p>
+      <p style="color:var(--text-2); margin-bottom:28px;">Sei sicuro di voler eliminare <strong>{{ selectedUser.given_name }} {{ selectedUser.family_name }}</strong>? L'operazione è permanente.</p>
       <button class="btn-logout" (click)="confirmDelete()">Sì, elimina definitivamente</button>
       <button class="btn-forgot" (click)="showDeleteConfirm = false">Annulla</button>
     </div>
@@ -656,7 +657,7 @@
   <div class="modal-overlay" (click)="showDeleteStazioneConfirm = false">
     <div class="modal-card" style="max-width:360px; text-align:center;" (click)="$event.stopPropagation()">
       <h2>Elimina stazione</h2>
-      <p style="color:#666; margin-bottom:28px;">Sei sicuro di voler eliminare <strong>{{ stazioneToDelete?.descrizione ?? selectedStazione?.descrizione }}</strong>? L'operazione è permanente.</p>
+      <p style="color:var(--text-2); margin-bottom:28px;">Sei sicuro di voler eliminare <strong>{{ stazioneToDelete?.descrizione ?? selectedStazione?.descrizione }}</strong>? L'operazione è permanente.</p>
       <button class="btn-logout" (click)="confirmDeleteStazione()">Sì, elimina definitivamente</button>
       <button class="btn-forgot" (click)="showDeleteStazioneConfirm = false">Annulla</button>
     </div>
@@ -683,7 +684,7 @@
     <div class="modal-card" (click)="$event.stopPropagation()">
       <h2>Nuovo contratto</h2>
       <div class="form-group-inline"><label>Tipo *</label>
-        <select [(ngModel)]="newContratto.tipoContratto" (change)="onTipoContrattoChange(newContratto)" style="flex:1; padding:9px 12px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px;">
+        <select [(ngModel)]="newContratto.tipoContratto" (change)="onTipoContrattoChange(newContratto)" style="flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--surface); color:var(--text);">
           <option value="indeterminato">Indeterminato</option>
           <option value="determinato">Determinato</option>
           <option value="part_time">Part-time</option>
@@ -705,7 +706,7 @@
       <div class="form-group-inline"><label>Periodo di prova (mesi)</label> <input type="number" [(ngModel)]="newContratto.periodoDiProva" min="0" max="24" placeholder="Es. 3"></div>
       <div class="form-group-inline"><label>Ferie annuali (gg)</label> <input type="number" [(ngModel)]="newContratto.giorniFerie"        min="0" max="365" placeholder="Es. 26"></div>
       <div class="form-group-inline"><label>Permessi ROL (h)</label>   <input type="number" [(ngModel)]="newContratto.permessiOre"        min="0"           placeholder="Es. 32"></div>
-      <div class="form-group"><label>Note</label><textarea [(ngModel)]="newContratto.note" rows="2" placeholder="Clausole particolari..." style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; resize:vertical;"></textarea></div>
+      <div class="form-group"><label>Note</label><textarea [(ngModel)]="newContratto.note" rows="2" placeholder="Clausole particolari..." style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; resize:vertical; background:var(--surface); color:var(--text);"></textarea></div>
       @if (contrattoModalError) { <p class="modal-error">{{ contrattoModalError }}</p> }
       <button class="btn-login" (click)="salvaContratto()">Salva contratto</button>
       <button class="btn-forgot" (click)="closeContrattoModal()">Annulla</button>
@@ -719,7 +720,7 @@
     <div class="modal-card" (click)="$event.stopPropagation()">
       <h2>Modifica contratto</h2>
       <div class="form-group-inline"><label>Tipo *</label>
-        <select [(ngModel)]="editContratto.tipoContratto" (change)="onTipoContrattoChange(editContratto)" style="flex:1; padding:9px 12px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px;">
+        <select [(ngModel)]="editContratto.tipoContratto" (change)="onTipoContrattoChange(editContratto)" style="flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--surface); color:var(--text);">
           <option value="indeterminato">Indeterminato</option>
           <option value="determinato">Determinato</option>
           <option value="part_time">Part-time</option>
@@ -741,7 +742,7 @@
       <div class="form-group-inline"><label>Periodo di prova (mesi)</label> <input type="number" [(ngModel)]="editContratto.periodoDiProva" min="0" max="24" placeholder="Es. 3"></div>
       <div class="form-group-inline"><label>Ferie annuali (gg)</label> <input type="number" [(ngModel)]="editContratto.giorniFerie"        min="0" max="365" placeholder="Es. 26"></div>
       <div class="form-group-inline"><label>Permessi ROL (h)</label>   <input type="number" [(ngModel)]="editContratto.permessiOre"        min="0"           placeholder="Es. 32"></div>
-      <div class="form-group"><label>Note</label><textarea [(ngModel)]="editContratto.note" rows="2" placeholder="Clausole particolari..." style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; resize:vertical;"></textarea></div>
+      <div class="form-group"><label>Note</label><textarea [(ngModel)]="editContratto.note" rows="2" placeholder="Clausole particolari..." style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; resize:vertical; background:var(--surface); color:var(--text);"></textarea></div>
       @if (contrattoModalError) { <p class="modal-error">{{ contrattoModalError }}</p> }
       <button class="btn-login" (click)="salvaModificaContratto()">Salva modifiche</button>
       <button class="btn-forgot" (click)="showEditContrattoModal = false">Annulla</button>

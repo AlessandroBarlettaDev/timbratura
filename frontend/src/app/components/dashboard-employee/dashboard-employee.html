@@ -26,7 +26,7 @@
         <div class="emp-card" style="padding: 28px 36px;">
           <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" (click)="dettagliUtenteOpen = !dettagliUtenteOpen">
             <h2 class="panel-title" style="margin:0;">Dettagli utente</h2>
-            <span style="font-size:13px; color:#9ca3af; transition:transform 0.2s; display:inline-block;"
+            <span style="font-size:13px; color:var(--text-m); transition:transform 0.2s; display:inline-block;"
                   [style.transform]="dettagliUtenteOpen ? 'rotate(180deg)' : 'rotate(0deg)'">▼</span>
           </div>
           @if (dettagliUtenteOpen) {
@@ -78,7 +78,7 @@
         <div class="emp-card" style="padding: 28px 36px;">
           <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" (click)="contrattoOpen = !contrattoOpen">
             <h2 class="panel-title" style="margin:0;">Il mio contratto</h2>
-            <span style="font-size:13px; color:#9ca3af; transition:transform 0.2s; display:inline-block;"
+            <span style="font-size:13px; color:var(--text-m); transition:transform 0.2s; display:inline-block;"
                   [style.transform]="contrattoOpen ? 'rotate(180deg)' : 'rotate(0deg)'">▼</span>
           </div>
           @if (contrattoOpen) {
@@ -101,7 +101,7 @@
                 @if (contrattoAttivo.note)              { <div class="detail-item"><span class="detail-label">Note</span>            <span style="white-space:pre-wrap; word-break:break-word;">{{ contrattoAttivo.note }}</span></div> }
               </div>
             } @else {
-              <p style="margin:16px 0 0; color:#9ca3af; font-size:14px;">Nessun contratto registrato.</p>
+              <p style="margin:16px 0 0; color:var(--text-m); font-size:14px;">Nessun contratto registrato.</p>
             }
           }
         </div>
@@ -133,7 +133,7 @@
                       <td>{{ r.tipoRichiesta === 'reset_biometria' ? '—' : r.data }}</td>
                       <td>
                         @if (r.tipoRichiesta === 'reset_biometria') {
-                          <span class="badge" style="background:#ede9fe; color:#6d28d9;">Reset biometria</span>
+                          <span class="badge badge-purple">Reset biometria</span>
                         } @else {
                           <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
                             {{ r.tipo | titlecase }}
@@ -146,12 +146,12 @@
                         <span class="badge"
                           [class.badge-inactive]="r.stato === 'pendente'"
                           [class.badge-active]="r.stato === 'approvata'"
-                          [style.background]="r.stato === 'rifiutata' ? '#fee2e2' : ''"
-                          [style.color]="r.stato === 'rifiutata' ? '#991b1b' : ''">
+                          [style.background]="r.stato === 'rifiutata' ? 'var(--danger-bg)' : ''"
+                          [style.color]="r.stato === 'rifiutata' ? 'var(--danger)' : ''">
                           {{ statoLabel(r.stato) }}
                         </span>
                         @if (r.stato === 'rifiutata' && r.motivoRifiuto) {
-                          <span style="display:block; font-size:11px; color:#999; margin-top:4px;">{{ r.motivoRifiuto }}</span>
+                          <span style="display:block; font-size:11px; color:var(--text-m); margin-top:4px;">{{ r.motivoRifiuto }}</span>
                         }
                       </td>
                     </tr>
@@ -253,12 +253,12 @@
   <div class="modal-overlay" (click)="closeResetBiometriaModal()">
     <div class="modal-card" (click)="$event.stopPropagation()">
       <h2>Richiedi reset biometria</h2>
-      <p style="color:#666; margin-bottom:16px; font-size:14px;">
+      <p style="color:var(--text-2); margin-bottom:16px; font-size:14px;">
         La tua richiesta verrà inviata al manager. Una volta approvata, le tue credenziali biometriche verranno cancellate e al prossimo login potrai registrare un nuovo dispositivo.
       </p>
       <div class="form-group">
-        <label>Motivo * <span style="font-size:12px; color:#999;">(es. cambio telefono)</span></label>
-        <textarea [(ngModel)]="resetBiometriaNote" rows="3" placeholder="Spiega il motivo del reset..." style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+        <label>Motivo * <span style="font-size:12px; color:var(--text-m);">(es. cambio telefono)</span></label>
+        <textarea [(ngModel)]="resetBiometriaNote" rows="3" placeholder="Spiega il motivo del reset..." style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; resize:vertical;"></textarea>
       </div>
       @if (resetBiometriaError) { <p class="modal-error">{{ resetBiometriaError }}</p> }
       <button class="btn-login" (click)="inviaResetBiometria()">Invia richiesta</button>
@@ -280,8 +280,8 @@
       </div>
       <div class="form-group-inline"><label>Data *</label> <input type="date" [(ngModel)]="newRequest.data"></div>
       <div class="form-group-inline"><label>Ora *</label>  <input type="time" [(ngModel)]="newRequest.ora"></div>
-      <div class="form-group"><label>Nota * <span style="font-size:12px; color:#999;">(spiega il motivo della richiesta)</span></label>
-        <textarea [(ngModel)]="newRequest.nota" rows="3" placeholder="Es. Ho dimenticato di timbrare l'uscita alle 18:00..." style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+      <div class="form-group"><label>Nota * <span style="font-size:12px; color:var(--text-m);">(spiega il motivo della richiesta)</span></label>
+        <textarea [(ngModel)]="newRequest.nota" rows="3" placeholder="Es. Ho dimenticato di timbrare l'uscita alle 18:00..." style="width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; resize:vertical;"></textarea>
       </div>
       @if (requestModalError) { <p class="modal-error">{{ requestModalError }}</p> }
       <button class="btn-login" (click)="inviaRequest()">Invia richiesta</button>

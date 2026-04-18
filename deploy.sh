@@ -9,6 +9,11 @@
 #   ./deploy.sh --dev           → deploy completo dev
 #   ./deploy.sh --dev frontend  → solo frontend dev (~30s)
 #   ./deploy.sh --dev backend   → solo infrastruttura dev
+#   ./deploy.sh --dev hotswap   → solo Lambda dev, bypassa CloudFormation (~15s)
+#
+# HOTSWAP: aggiorna solo il codice delle Lambda senza passare per CloudFormation.
+#   Usare quando si modifica solo backend Lambda (non infrastruttura CDK).
+#   Non disponibile in produzione (CloudFormation è obbligatorio per prod).
 #
 # PREREQUISITI:
 #   - AWS CLI configurato con le credenziali corrette
@@ -80,11 +85,13 @@ CDK_OUTPUTS="/tmp/cdk-outputs.json"
 DEV_MODE=false
 FRONTEND_ONLY=false
 BACKEND_ONLY=false
+HOTSWAP=false
 for arg in "$@"; do
   case "$arg" in
     --dev)    DEV_MODE=true ;;
     frontend) FRONTEND_ONLY=true ;;
     backend)  BACKEND_ONLY=true ;;
+    hotswap)  HOTSWAP=true ;;
   esac
 done
 
@@ -247,6 +254,37 @@ if $BACKEND_ONLY; then
 
   echo ""
   echo "✅ Backend aggiornato. Il frontend su S3 non è stato modificato."
+  exit 0
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MODALITÀ: hotswap (solo dev)
+# Bypassa CloudFormation — aggiorna direttamente il codice delle Lambda via SDK.
+# ~15s invece di ~4-9 minuti. Usare solo per modifiche al codice Lambda,
+# non per cambiamenti all'infrastruttura CDK (tabelle, rotte, permessi IAM).
+# ─────────────────────────────────────────────────────────────────────────────
+if $HOTSWAP; then
+  if ! $DEV_MODE; then
+    echo "❌ hotswap è disponibile solo in modalità --dev (non in produzione)."
+    exit 1
+  fi
+
+  echo "▶ Hotswap Lambda ($STACK_NAME) — bypassa CloudFormation..."
+
+  if [ ! -d "$BACKEND_DIR/node_modules" ]; then
+    cd "$BACKEND_DIR" && npm install
+  fi
+
+  # BucketDeployment richiede dist/ anche in hotswap; creiamo placeholder se assente
+  if [ ! -d "$FRONTEND_DIR/dist/frontend/browser" ]; then
+    mkdir -p "$FRONTEND_DIR/dist/frontend/browser"
+  fi
+
+  cd "$BACKEND_DIR"
+  ./node_modules/.bin/cdk deploy "$STACK_NAME" --hotswap --require-approval never 2>&1
+
+  echo ""
+  echo "✅ Hotswap completato — Lambda aggiornate senza CloudFormation."
   exit 0
 fi
 

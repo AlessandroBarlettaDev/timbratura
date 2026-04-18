@@ -31,7 +31,7 @@
     }
 
     @if (step === 'change_password') {
-      <p style="color:#666; font-size:14px; margin-bottom:24px;">
+      <p style="color:var(--text-2); font-size:14px; margin-bottom:24px;">
         Stai accedendo per la prima volta. Scegli una password personale.
       </p>
       <form [formGroup]="changePasswordForm" (ngSubmit)="changePassword()">
@@ -57,7 +57,7 @@
     }
 
     @if (step === 'reset_request') {
-      <p style="color:#666; font-size:14px; margin-bottom:24px;">
+      <p style="color:var(--text-2); font-size:14px; margin-bottom:24px;">
         Inserisci la tua email. Ti invieremo un codice per reimpostare la password.
       </p>
       <form [formGroup]="resetRequestForm" (ngSubmit)="requestPasswordReset()">
@@ -73,7 +73,7 @@
     }
 
     @if (step === 'reset_confirm') {
-      <p style="color:#666; font-size:14px; margin-bottom:24px;">
+      <p style="color:var(--text-2); font-size:14px; margin-bottom:24px;">
         Controlla la tua email e inserisci il codice ricevuto.
       </p>
       <form [formGroup]="resetConfirmForm" (ngSubmit)="confirmPasswordReset()">

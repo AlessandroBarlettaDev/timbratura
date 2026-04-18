@@ -1,5 +1,5 @@
 
-/* ── Variabili ── */
+/* ── 1. Variabili ── */
 :root {
   --bg: #F8F7F4;
   --surface: #fff;
@@ -27,7 +27,6 @@
   --sh-lg: 0 8px 32px rgba(0,0,0,.10), 0 4px 8px rgba(0,0,0,.04);
 }
 
-/* ── Dark mode ── */
 [data-theme="dark"] {
   --bg: #111110;
   --surface: #1C1C1A;
@@ -50,37 +49,30 @@
   --sh-lg: 0 8px 32px rgba(0,0,0,0.5), 0 4px 8px rgba(0,0,0,0.3);
 }
 
-/* ── Reset ── */
+/* ── 2. Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; font-family: var(--sans); -webkit-font-smoothing: antialiased; background: var(--bg); }
+html, body { height: 100%; }
+body { font-family: var(--sans); -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); }
+app-root { display: block; width: 100%; min-height: 100%; }
+h2 { margin-bottom: 30px; font-weight: 600; letter-spacing: -0.5px; }
 
-/* ── Wordmark ── */
+/* ── 3. Form elements ── */
+input, select, textarea { background: var(--surface); color: var(--text); }
+input { width: 100%; padding: 14px 18px; border: 1px solid var(--border); border-radius: 12px; font-size: 15px; outline: none; transition: border-color 0.3s; }
+input:focus { border-color: var(--accent); }
+select { border: 1px solid var(--border); border-radius: 8px; font-size: 14px; padding: 9px 12px; }
+textarea { border: 1px solid var(--border); border-radius: 8px; font-size: 14px; resize: vertical; padding: 10px; width: 100%; }
+
+/* ── 4. Typography / Brand ── */
 .wordmark { display: flex; align-items: center; gap: 8px; }
 .wm-dot { font-size: 10px; color: var(--accent); }
 .wm-name { font-family: var(--mono); font-size: 13px; font-weight: 500; letter-spacing: .04em; color: var(--text); }
-
-/* ── Topbar (base comune) ── */
-.topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid var(--border); background: var(--surface); }
-.tb-time { font-family: var(--mono); font-size: 12px; letter-spacing: .05em; color: var(--text-m); }
-.btn-logout { height: 32px; padding: 0 12px; background: transparent; border: 1px solid var(--border); border-radius: var(--r-md); font-family: var(--sans); font-size: 12px; color: var(--text-m); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 150ms; }
-.btn-logout:hover { color: var(--danger); border-color: rgba(155,28,28,.3); background: var(--danger-bg); }
-
-/* ── Chip ── */
+.brand { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
+.brand-login { font-size: 15px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 28px; color: var(--text); }
 .role-chip { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--text-m); padding: 4px 12px; border: 1px solid var(--border); border-radius: 100px; background: var(--surface); }
+.tb-time { font-family: var(--mono); font-size: 12px; letter-spacing: .05em; color: var(--text-m); }
 
-/* ── Badges ── */
-.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 100px; font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; }
-.badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-.b-on  { background: var(--success-bg); color: var(--success); }
-.b-off { background: var(--danger-bg);  color: var(--danger); }
-.b-warn{ background: var(--warning-bg); color: var(--warning); }
-
-/* ── Clock type tags ── */
-.ct { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: .06em; padding: 2px 8px; border-radius: 100px; text-transform: uppercase; }
-.ct-in  { background: var(--success-bg); color: var(--success); }
-.ct-out { background: var(--danger-bg);  color: var(--danger); }
-
-/* ── Buttons ── */
+/* ── 5. Buttons ── */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; padding: 0 14px; border: none; border-radius: var(--r-md); font-family: var(--sans); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 150ms; }
 .btn-p { background: var(--accent); color: #fff; }
 .btn-p:hover { background: #2C2C29; }
@@ -91,7 +83,36 @@ html, body { height: 100%; font-family: var(--sans); -webkit-font-smoothing: ant
 .btn-success { background: var(--success-bg); color: var(--success); border: 1px solid rgba(45,106,79,.2); }
 .btn-sec { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--border); }
 
-/* ── Form ── */
+.btn-login { width: 100%; padding: 14px; background: var(--accent); color: var(--text-on-accent); border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; transition: opacity 0.3s; }
+.btn-login:hover { opacity: 0.8; }
+.btn-login-success { background: #2e7d32; }
+.btn-login-danger  { background: #c62828; }
+[data-theme="dark"] .btn-login-success { background: #166534; }
+[data-theme="dark"] .btn-login-danger  { background: #7f1d1d; }
+
+.btn-forgot { display: block; margin-top: 20px; background: none; border: none; color: var(--text-2); font-size: 13px; text-decoration: underline; cursor: pointer; width: 100%; }
+.btn-back { background: none; border: none; font-size: 14px; color: var(--text-2); cursor: pointer; padding: 0; margin-bottom: 20px; display: block; }
+.btn-back:hover { color: var(--text); }
+.btn-logout { width: 100%; padding: 10px; border: none; border-radius: 10px; background: var(--danger-bg); font-size: 14px; font-weight: 600; color: var(--danger); cursor: pointer; text-align: center; display: flex; justify-content: center; align-items: center; transition: opacity 0.2s; }
+.btn-logout:hover { opacity: 0.85; }
+.btn-show-password { position: absolute; right: 14px; background: none; border: none; font-size: 13px; color: var(--text-m); cursor: pointer; padding: 0; }
+.btn-show-password:hover { color: var(--text); }
+
+/* ── 6. Badges & Chips ── */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge-active   { background: var(--success-bg); color: var(--success); }
+.badge-inactive { background: var(--danger-bg);  color: var(--danger); }
+.badge-purple   { background: #ede9fe; color: #6d28d9; }
+[data-theme="dark"] .badge-purple { background: #2e1065; color: #c4b5fd; }
+
+.ct { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: .06em; padding: 2px 8px; border-radius: 100px; text-transform: uppercase; }
+.ct-in  { background: var(--success-bg); color: var(--success); }
+.ct-out { background: var(--danger-bg);  color: var(--danger); }
+.b-on   { background: var(--success-bg); color: var(--success); }
+.b-off  { background: var(--danger-bg);  color: var(--danger); }
+.b-warn { background: var(--warning-bg); color: var(--warning); }
+
+/* ── 7. Form layout ── */
 .form { display: flex; flex-direction: column; gap: 18px; }
 .ff { display: flex; flex-direction: column; gap: 6px; }
 .fl { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
@@ -101,24 +122,158 @@ html, body { height: 100%; font-family: var(--sans); -webkit-font-smoothing: ant
 .iw { position: relative; }
 .iw .fi { padding-right: 48px; }
 .it { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; color: var(--text-m); }
+.form-group { margin-bottom: 15px; text-align: left; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-m); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group-inline { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.form-group-inline label { width: 130px; flex-shrink: 0; font-size: 12px; font-weight: 600; color: var(--text-m); text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group-inline input, .form-group-inline .switch-container { flex: 1; margin-bottom: 0; }
+.input-password { position: relative; display: flex; align-items: center; }
+.input-password input { padding-right: 90px; }
 
-/* ── Error banner ── */
+/* ── 8. Error / Banners ── */
 .error-banner { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--danger-bg); border: 1px solid rgba(155,28,28,.2); border-radius: var(--r-md); font-size: 13px; font-weight: 500; color: var(--danger); animation: fadeIn 200ms ease; }
+.modal-error { color: var(--danger); font-size: 13px; margin-bottom: 12px; text-align: center; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
-/* ── Spinner ── */
-.spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: block; }
+/* ── 9. Spinner ── */
+.spinner-container { display: flex; justify-content: center; margin-top: 60px; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.7s linear infinite; display: block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Card (login / form pages) ── */
+/* ── 10. Cards ── */
 .card { width: 100%; max-width: 400px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 40px 32px; box-shadow: var(--sh-lg); }
 .card-title { font-size: 22px; font-weight: 600; letter-spacing: -.02em; color: var(--text); margin-bottom: 6px; }
 .card-sub { font-size: 14px; color: var(--text-2); line-height: 1.5; margin-bottom: 28px; }
+.centered-container { min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
+.login-card { background: var(--surface); padding: 40px; border-radius: 20px; box-shadow: var(--sh-lg); width: 100%; max-width: 400px; text-align: center; border: 1px solid var(--border); }
+.emp-card { background: var(--surface); border-radius: 20px; box-shadow: var(--sh-card); border: 1px solid var(--border); }
+.switch-container { display: flex; background: var(--bg); border-radius: 12px; padding: 4px; margin-bottom: 30px; }
+.switch-btn { flex: 1; padding: 10px; border: none; border-radius: 10px; background: transparent; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; color: var(--text-2); }
+.switch-btn.active { background: var(--surface); box-shadow: 0 2px 5px rgba(0,0,0,0.1); color: var(--text); }
 
-/* ── Grid bg (pagine centrate) ── */
+/* ── 11. Modal ── */
+.modal-overlay { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+.modal-card { background: var(--surface); border-radius: 20px; box-shadow: var(--sh-lg); padding: 28px 32px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); }
+.modal-card h2 { margin-bottom: 20px; color: var(--text); }
+
+/* ── 12. Topbar ── */
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid var(--border); background: var(--surface); }
+
+/* ── 13. Dashboard layout ── */
+.dashboard-container { display: flex; height: 100dvh; background: var(--bg); gap: 16px; padding: 16px; }
+.sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-radius: 20px; box-shadow: var(--sh-md); padding: 28px 16px; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); }
+.sidebar-title { font-size: 13px; font-weight: 600; color: var(--text-m); text-transform: uppercase; letter-spacing: 0.8px; padding: 0 12px; margin-bottom: 10px; }
+.nav-item { padding: 12px 16px; border-radius: 12px; font-size: 15px; font-weight: 500; cursor: pointer; border: none; background: transparent; text-align: left; width: 100%; transition: background 0.2s; color: var(--text-2); }
+.nav-item:hover { background: var(--bg); color: var(--text); }
+.nav-item.active { background: var(--accent); color: var(--text-on-accent); }
+.content-panel { flex: 1; background: var(--surface); border-radius: 20px; box-shadow: var(--sh-md); padding: 36px; overflow-y: auto; border: 1px solid var(--border); }
+.panel-title { font-size: 22px; font-weight: 600; margin-bottom: 24px; color: var(--text); }
+.panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.panel-header .panel-title { margin-bottom: 0; }
+
+/* ── 14. Sidebar footer ── */
+.sidebar-footer { margin-top: auto; padding-top: 16px; padding-bottom: env(safe-area-inset-bottom, 0px); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.sidebar-user-btn { background: none; border: none; font-size: 13px; font-weight: 600; color: var(--text-2); text-align: center; cursor: pointer; width: 100%; padding: 6px; border-radius: 8px; transition: background 0.2s; }
+.sidebar-user-btn:hover { background: var(--bg); }
+.btn-theme { background: none; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer; padding: 8px; width: 100%; transition: all 0.2s; }
+.btn-theme:hover { background: var(--bg); color: var(--text); }
+.btn-theme-inline { background: none; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; cursor: pointer; padding: 4px 8px; color: var(--text-2); transition: all 0.15s; flex-shrink: 0; }
+.btn-theme-inline:hover { background: var(--bg); color: var(--text); }
+
+/* ── 15. Tabelle ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data-table th { text-align: left; padding: 10px 14px; font-weight: 600; color: var(--text-m); border-bottom: 1px solid var(--border); }
+.data-table td { padding: 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+.data-table tr:last-child td { border-bottom: none; }
+.clickable-row { cursor: pointer; transition: background 0.15s; }
+.clickable-row:hover { background: var(--bg); }
+.empty-state { color: var(--text-m); font-size: 14px; margin-top: 40px; text-align: center; }
+
+/* ── 16. Dettaglio utente ── */
+.detail-grid { display: grid; grid-template-columns: 180px 1fr; gap: 16px 12px; margin-top: 8px; }
+.detail-label { font-size: 13px; font-weight: 600; color: var(--text-m); align-self: center; }
+.detail-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.detail-item { display: flex; flex-direction: row; align-items: baseline; gap: 12px; }
+.detail-item .detail-label { min-width: 160px; flex-shrink: 0; }
+.detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.detail-header .panel-title { margin-bottom: 0; }
+.detail-actions { display: flex; gap: 8px; }
+.btn-detail-action { padding: 8px 20px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; color: var(--text-2); }
+.btn-detail-action:hover { background: var(--bg); }
+.btn-detail-danger { border-color: var(--danger); color: var(--danger); }
+.btn-detail-danger:hover { background: var(--danger-bg); }
+.btn-detail-primary { background: var(--accent); color: var(--text-on-accent); border-color: var(--accent); }
+.btn-detail-primary:hover { opacity: 0.85; }
+
+/* ── 17. Stat cards / Period control ── */
+.timbrature-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.period-control { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 4px 8px; }
+.period-arrow { width: 28px; height: 28px; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; cursor: pointer; font-size: 12px; line-height: 1; color: var(--text-2); }
+.period-arrow:hover { background: var(--bg); }
+.period-value { min-width: 120px; text-align: center; font-size: 13px; font-weight: 600; color: var(--text); }
+.info-stat-card { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 14px 20px; display: flex; flex-direction: column; gap: 4px; min-width: 120px; flex: 1; }
+.info-stat-label { font-size: 11px; font-weight: 600; color: var(--text-m); text-transform: uppercase; letter-spacing: 0.6px; }
+.info-stat-value { font-size: 20px; font-weight: 700; color: var(--text); }
+
+/* ── 18. Dashboard stazione card ── */
+.dashboard-station-card { background: var(--bg); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 16px; }
+.dashboard-station-header { display: flex; align-items: center; justify-content: space-between; }
+.dashboard-station-name { font-size: 16px; font-weight: 600; color: var(--text); }
+.dashboard-station-count { display: flex; flex-direction: column; align-items: center; background: var(--accent); color: var(--text-on-accent); border-radius: 12px; padding: 8px 16px; min-width: 64px; }
+.dashboard-count-number { font-size: 22px; font-weight: 700; line-height: 1; }
+.dashboard-count-label { font-size: 10px; font-weight: 500; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ── 19. Stazione layout ── */
+.station-page { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
+.station-topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.station-layout { flex: 1; display: flex; gap: 16px; padding: 16px; overflow: hidden; }
+.station-info-panel { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+.station-descrizione { font-size: 20px; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+.info-card { background: var(--surface); border-radius: 16px; box-shadow: var(--sh-md); padding: 20px 24px; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); }
+.info-label { font-size: 11px; font-weight: 600; color: var(--text-m); text-transform: uppercase; letter-spacing: 0.6px; }
+.info-value { font-size: 28px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.info-value-sm { font-size: 18px; font-weight: 600; color: var(--text); }
+.station-qr-panel { flex: 1; background: var(--surface); border-radius: 20px; box-shadow: var(--sh-md); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; border: 1px solid var(--border); }
+.station-qr { border-radius: 12px; max-width: min(400px, 80%); }
+.station-hint { font-size: 14px; color: var(--text-m); }
+.station-map-card { background: var(--surface); border-radius: 16px; box-shadow: var(--sh-md); padding: 16px; border: 1px solid var(--border); }
+.station-map-iframe { width: 100%; height: 200px; border: none; border-radius: 10px; }
+.station-notifica { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 14px; font-size: 14px; animation: slideUp 0.3s ease; margin-top: 16px; }
+.notifica-entrata { background: var(--success-bg); color: var(--success); }
+.notifica-uscita  { background: var(--danger-bg);  color: var(--danger); }
+.notifica-icon    { font-size: 22px; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── 20. Grid bg ── */
 .bg-grid {
   background-color: var(--bg);
   background-image: linear-gradient(var(--border) 1px, transparent 1px),
     linear-gradient(90deg, var(--border) 1px, transparent 1px);
   background-size: 40px 40px;
+}
+
+/* ── 21. Hamburger (mobile only) ── */
+.btn-hamburger { display: none; }
+
+/* ── 22. Mobile ── */
+@media (max-width: 768px) {
+  .dashboard-container { padding: 0; gap: 0; }
+
+  .sidebar {
+    position: fixed; top: 0; left: 0; height: 100dvh; z-index: 200;
+    transform: translateX(-100%); transition: transform 0.25s ease;
+    border-radius: 0; width: 240px;
+  }
+  .sidebar.sidebar-open { transform: translateX(0); }
+
+  .sidebar-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 199; }
+
+  .content-panel { width: 100%; border-radius: 0; padding: 16px; }
+
+  .btn-hamburger {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 14px; font-size: 14px; font-weight: 600; cursor: pointer;
+    margin-bottom: 16px; color: var(--text-2);
+  }
 }
