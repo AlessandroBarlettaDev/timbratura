@@ -590,6 +590,29 @@ La logica attuale determina entrata/uscita guardando l'ultima timbratura assolut
 
 Prerequisiti: nuova tabella DynamoDB `Turni`, UI di gestione template e assegnazione in dashboard manager, aggiornamento della logica in `timbrature-handler.ts`.
 
+### Chiusura automatica turno (uscita forzata)
+
+Se un dipendente non timbra uscita entro 9 ore dall'entrata, il sistema può chiudere automaticamente il turno con un'**uscita forzata** al timestamp `entrata + 9h`, richiedendo una spiegazione obbligatoria.
+
+**Approccio senza infrastruttura aggiuntiva (implementazione immediata)**
+La forzatura avviene al momento della timbratura successiva — quando il dipendente scansiona il QR per una nuova entrata, il backend rileva il turno aperto da più di 9 ore, inserisce automaticamente l'`uscita_forzata` a `entrata + 9h`, e prima di confermare la nuova entrata mostra un modale obbligatorio dove il dipendente deve selezionare il motivo:
+
+- *Straordinario autorizzato*
+- *Riunione / imprevisto*
+- *Emergenza*
+- *Dimenticanza*
+- *Altro* (con nota libera obbligatoria)
+
+Se il dipendente timbra uscita normalmente dopo le 9 ore (senza che sia arrivata una nuova entrata), lo stesso modale appare prima della conferma e l'uscita viene salvata con il timestamp reale — non viene creata alcuna uscita forzata separata.
+
+La spiegazione è salvata nel record della timbratura e visibile al manager nella vista timbrature del dipendente.
+
+**Approccio con EventBridge (per chiusura realmente automatica)**
+Una Lambda schedulata (EventBridge cron ogni 30 minuti) scansiona i turni aperti da più di 9 ore e inserisce l'`uscita_forzata` indipendentemente dall'attività del dipendente. Il dipendente viene notificato (email via SES o avviso in-app al prossimo login) e deve fornire la spiegazione entro 24 ore; in assenza di risposta il manager riceve un avviso. Richiede: EventBridge Rule, SES production access, gestione dello stato "spiegazione pendente".
+
+**Soglia 9 ore**
+Corrisponde a un turno di 8 ore + 1 ora di margine (pausa pranzo inclusa). Configurabile tramite la costante `USCITA_FORZATA_ORE` nel backend, indipendente da `TURNO_MAX_ORE` (20 ore, usata per la logica entrata/uscita). Con la **Gestione turni** (sezione precedente) questa soglia potrebbe essere derivata direttamente dalla finestra del turno assegnato al dipendente, eliminando la necessità di un valore fisso.
+
 ### Webhook per eventi
 Notifiche push verso endpoint configurati dal cliente quando:
 - Una timbratura viene registrata
