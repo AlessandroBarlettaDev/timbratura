@@ -601,4 +601,4 @@ Notifiche push verso endpoint configurati dal cliente quando:
 - Configurare un dominio personalizzato per CloudFront e API Gateway
 - Restringere ulteriormente i permessi IAM delle Lambda (principio del minimo privilegio)
 - Abilitare DynamoDB Point-in-Time Recovery (PITR) per backup continuo
-- Aggiungere log di audit (IP, user agent) ad ogni timbratura e approvazione
+- Aggiungere log di audit (user agent) ad ogni timbratura e approvazione — l'IP non è affidabile su rete mobile (CGNAT): la validazione geografica è già garantita dal GPS

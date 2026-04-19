@@ -90,7 +90,9 @@ async function startRegistration(userId: string, email?: string, givenName?: str
 async function completeRegistration(userId: string, event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const body           = JSON.parse(event.body);
+  let body: any;
+  try { body = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
   const challengeRecord = await getItem(`challenge#${userId}`);
   if (!challengeRecord) return json(400, 'Nessuna challenge attiva — riavvia la registrazione');
 
@@ -205,7 +207,10 @@ export async function verifyAssertion(assertion: any, sessionId: string): Promis
 // Wrapper per l'invocazione diretta da timbrature-handler, che passa assertion e sessionId nel body per verificare l'identità del dipendente durante la timbratura.
 async function completeAuthentication(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
-  const { assertion, sessionId } = JSON.parse(event.body);
+  let parsedBody: any;
+  try { parsedBody = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
+  const { assertion, sessionId } = parsedBody;
   try {
     const userId = await verifyAssertion(assertion, sessionId);
     return json(200, { userId });

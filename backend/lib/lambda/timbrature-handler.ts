@@ -78,7 +78,10 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { stationId, qrToken, expiresAt, assertion, sessionId, lat, lng } = JSON.parse(event.body);
+  let parsedBody: any;
+  try { parsedBody = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
+  const { stationId, qrToken, expiresAt, assertion, sessionId, lat, lng } = parsedBody;
   if (!stationId || !qrToken || !expiresAt || !assertion || !sessionId)
     return json(400, 'Parametri mancanti');
 
@@ -134,7 +137,10 @@ async function anteprimaTimbratura(event: APIGatewayProxyEvent) {
 async function confermaTimbratura(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { confirmToken, tipoOverride } = JSON.parse(event.body);
+  let parsedBody: any;
+  try { parsedBody = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
+  const { confirmToken, tipoOverride } = parsedBody;
   if (!confirmToken) return json(400, 'confirmToken mancante');
 
   const queryResult = await dynamo.send(new QueryCommand({
@@ -174,7 +180,24 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
     Key: marshall({ userId: `pending#${confirmToken}`, timestamp: pending.timestamp }),
   }));
 
-  return json(200, { tipo: tipoFinale, timestamp, nome: pending.nome, cognome: pending.cognome });
+  let durataMinuti: number | null = null;
+  if (tipoFinale === 'uscita') {
+    const entRes = await dynamo.send(new QueryCommand({
+      TableName:              TIMBRATURE_TABLE,
+      KeyConditionExpression: 'userId = :uid AND #ts < :now',
+      FilterExpression:       'tipo = :entrata AND stationId = :sid',
+      ExpressionAttributeNames:  { '#ts': 'timestamp' },
+      ExpressionAttributeValues: marshall({ ':uid': pending.realUserId, ':now': timestamp, ':entrata': 'entrata', ':sid': pending.stationId }),
+      ScanIndexForward: false,
+      Limit: 1,
+    }));
+    if (entRes.Items?.[0]) {
+      const entrata = unmarshall(entRes.Items[0]);
+      durataMinuti = Math.round((new Date(timestamp).getTime() - new Date(entrata.timestamp).getTime()) / 60000);
+    }
+  }
+
+  return json(200, { tipo: tipoFinale, timestamp, nome: pending.nome, cognome: pending.cognome, durataMinuti });
 }
 
 // --- POST /timbrature ---
@@ -182,7 +205,10 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
 async function registraTimbratura(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { stationId, qrToken, expiresAt, assertion, sessionId, lat, lng } = JSON.parse(event.body);
+  let parsedBody: any;
+  try { parsedBody = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
+  const { stationId, qrToken, expiresAt, assertion, sessionId, lat, lng } = parsedBody;
   if (!stationId || !qrToken || !expiresAt || !assertion || !sessionId) {
     return json(400, 'Parametri mancanti');
   }
@@ -261,8 +287,8 @@ async function getDashboard() {
       ScanIndexForward:          true,
     })),
   ]);
-  const timbratureOggi = (timRes.Items ?? []).map(i => unmarshall(i));
-  const timbratureIeri = (timResIeri.Items ?? []).map(i => unmarshall(i));
+  const timbratureOggi = (timRes.Items ?? []).map(i => unmarshall(i)).filter(t => !t.userId.startsWith('pending#'));
+  const timbratureIeri = (timResIeri.Items ?? []).map(i => unmarshall(i)).filter(t => !t.userId.startsWith('pending#'));
 
   // 2. Tutte le stazioni
   const staRes = await dynamo.send(new ScanCommand({ TableName: STAZIONI_TABLE }));
@@ -346,7 +372,7 @@ async function validaPosizioneGps(stationId: string, lat?: number, lng?: number)
     return { errore: null, descrizione: stazione.descrizione ?? '' };
 
   // La stazione ha coordinate: il GPS del dipendente è obbligatorio
-  if (lat == null || lng == null)
+  if (lat == null || lng == null || isNaN(lat) || isNaN(lng))
     return { errore: 'Posizione GPS non disponibile. Abilita la geolocalizzazione e riprova.', descrizione: stazione.descrizione ?? '' };
 
   const distanza = haversineMeters(lat, lng, stazione.lat, stazione.lng);

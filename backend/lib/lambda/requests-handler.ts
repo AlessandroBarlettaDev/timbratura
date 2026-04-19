@@ -47,7 +47,10 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 // tipoRichiesta = 'timbratura' (default) | 'reset_biometria'
 async function creaRequest(event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
-  const { data, tipo, ora, nota, tipoRichiesta } = JSON.parse(event.body);
+  let parsedBody: any;
+  try { parsedBody = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
+  const { data, tipo, ora, nota, tipoRichiesta } = parsedBody;
 
   const isResetBiometria = tipoRichiesta === 'reset_biometria';
 
@@ -216,7 +219,10 @@ async function approvaRequest(requestId: string, claims: any) {
 // --- POST /requests/{id}/reject — il manager rifiuta con motivo obbligatorio ---
 async function rifiutaRequest(requestId: string, event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
-  const { motivo } = JSON.parse(event.body);
+  let parsedBody: any;
+  try { parsedBody = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
+  const { motivo } = parsedBody;
   if (!motivo?.trim()) return json(400, 'Il motivo del rifiuto è obbligatorio');
 
   const item = await getItem(requestId);

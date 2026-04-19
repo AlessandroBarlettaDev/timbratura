@@ -190,7 +190,8 @@ export class DashboardEmployee implements OnInit {
     const oggi = new Date().toISOString().slice(0, 10);
     const timbratureOggi = this.timbrature.filter(t => t.timestamp?.startsWith(oggi));
     if (timbratureOggi.length === 0) return null;
-    return timbratureOggi[0].tipo === 'entrata';
+    const ultima = timbratureOggi.reduce((a: any, b: any) => a.timestamp > b.timestamp ? a : b);
+    return ultima.tipo === 'entrata';
   }
 
   get oreLavorate(): string {

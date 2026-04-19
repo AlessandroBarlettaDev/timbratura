@@ -76,7 +76,9 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 async function createEmployee(event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const raw = JSON.parse(event.body);
+  let raw: any;
+  try { raw = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
   const email           = raw.email?.trim().toLowerCase();
   const nome            = raw.nome;
   const cognome         = raw.cognome;
@@ -155,7 +157,9 @@ async function getEmployee(userId: string) {
 async function updateEmployee(userId: string, event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const raw = JSON.parse(event.body);
+  let raw: any;
+  try { raw = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
   const nome              = raw.nome;
   const cognome           = raw.cognome;
   const birthdate         = raw.birthdate;

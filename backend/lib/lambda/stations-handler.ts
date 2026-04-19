@@ -48,7 +48,10 @@ export const handler = async (event: APIGatewayProxyEvent) => {
 async function createStazione(event: APIGatewayProxyEvent, claims: any) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { descrizione, password } = JSON.parse(event.body);
+  let parsedBody: any;
+  try { parsedBody = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
+  const { descrizione, password } = parsedBody;
   if (!descrizione || !password) return json(400, 'descrizione e password sono obbligatori');
 
   // Genera il codice automaticamente — formato STZ-XXXXXX (6 caratteri hex maiuscoli)
@@ -133,7 +136,10 @@ async function deleteStazione(stationId: string, claims: any) {
 async function loginStazione(event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { codice, password } = JSON.parse(event.body);
+  let parsedBody: any;
+  try { parsedBody = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
+  const { codice, password } = parsedBody;
   if (!codice || !password) return json(400, 'codice e password sono obbligatori');
 
   const stazione = await getStazioneByCodice(codice);
@@ -181,7 +187,7 @@ async function getQr(stationId: string) {
     ExpressionAttributeValues: marshall({ ':data': oggi, ':sid': stationId }),
     ScanIndexForward:          true,
   }));
-  const timbratureOggi = (timRes.Items ?? []).map(i => unmarshall(i));
+  const timbratureOggi = (timRes.Items ?? []).map(i => unmarshall(i)).filter(t => !t.userId.startsWith('pending#'));
 
   const ultimaPerUtente = new Map<string, any>();
   for (const t of timbratureOggi) {
@@ -217,7 +223,10 @@ async function getQr(stationId: string) {
 async function updatePosition(stationId: string, event: APIGatewayProxyEvent) {
   if (!event.body) return json(400, 'Body mancante');
 
-  const { lat, lng } = JSON.parse(event.body);
+  let parsedBody: any;
+  try { parsedBody = JSON.parse(event.body); }
+  catch { return json(400, 'JSON non valido'); }
+  const { lat, lng } = parsedBody;
   if (lat == null || lng == null) return json(400, 'lat e lng sono obbligatori');
 
   const stazione = await getStazioneById(stationId);
@@ -269,7 +278,7 @@ function verificaJwtStazione(event: APIGatewayProxyEvent): { stationId: string; 
   try {
     const [header, body, sign] = auth.slice(7).split('.');
     const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
-    if (sign !== expected) return null;
+    if (!crypto.timingSafeEqual(Buffer.from(sign, 'base64url'), Buffer.from(expected, 'base64url'))) return null;
 
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
     if (payload.exp < Math.floor(Date.now() / 1000)) return null;
