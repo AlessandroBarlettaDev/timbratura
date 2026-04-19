@@ -63,8 +63,4 @@ export class ApiService {
   createStazione(data: any): Observable<any>  { return this.http.post(`${this.apiUrl}/stazioni`, data); }
   deleteStazione(id: string): Observable<any> { return this.http.delete(`${this.apiUrl}/stazioni/${id}`); }
 
-  // --- Audit Trail (Cognito manager) ---
-  getAuditTrail(params?: string): Observable<any>  { return this.http.get(`${this.apiUrl}/audit${params ? '?' + params : ''}`); }
-  getAuditByActor(actor: string, params?: string): Observable<any> { return this.http.get(`${this.apiUrl}/audit/actor/${actor}${params ? '?' + params : ''}`); }
-  getAuditByEntity(entityType: string, entityId: string, params?: string): Observable<any> { return this.http.get(`${this.apiUrl}/audit/entity/${entityType}/${entityId}${params ? '?' + params : ''}`); }
-} 
+}

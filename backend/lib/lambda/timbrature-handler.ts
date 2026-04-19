@@ -23,7 +23,7 @@ const MAX_DISTANCE_METERS = 200;
 const TURNO_MAX_ORE = 20;
 
 // Formula di Haversine — calcola la distanza in metri tra due coordinate GPS
-function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+export function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6_371_000; // raggio terrestre in metri
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
@@ -376,7 +376,7 @@ async function getUltimaTimbratura(userId: string) {
 //   - ultima era uscita           → entrata
 //   - ultima era entrata < 20h fa → uscita  (turno in corso, anche notturno)
 //   - ultima era entrata ≥ 20h fa → entrata (uscita dimenticata, nuovo turno)
-function calcolaTipo(ultima: any): 'entrata' | 'uscita' {
+export function calcolaTipo(ultima: any): 'entrata' | 'uscita' {
   if (!ultima || ultima.tipo === 'uscita') return 'entrata';
   const elapsed = Date.now() - new Date(ultima.timestamp).getTime();
   if (elapsed >= TURNO_MAX_ORE * 3_600_000) return 'entrata';

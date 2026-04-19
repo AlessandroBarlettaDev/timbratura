@@ -4,7 +4,6 @@ import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { CognitoIdentityProviderClient, AdminGetUserCommand, AdminUpdateUserAttributesCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { v4 as uuidv4 } from 'uuid';
 import { getJwtClaims, isManagerClaims } from './auth';
-import { writeAudit } from './audit';
 
 const dynamo           = new DynamoDBClient({});
 const cognito          = new CognitoIdentityProviderClient({});
@@ -12,7 +11,6 @@ const REQUESTS_TABLE   = process.env.REQUESTS_TABLE_NAME!;
 const TIMBRATURE_TABLE = process.env.TIMBRATURE_TABLE_NAME!;
 const WEBAUTHN_TABLE   = process.env.WEBAUTHN_TABLE_NAME!;
 const USER_POOL_ID     = process.env.USER_POOL_ID!;
-const AUDIT_TABLE      = process.env.AUDIT_TABLE_NAME!;
 
 // Converte una data e un'ora locale italiana (Europe/Rome) in un timestamp ISO UTC.
 // Necessario perché il dipendente inserisce l'ora locale, ma le timbrature sono salvate in UTC.
@@ -156,15 +154,6 @@ async function approvaRequest(requestId: string, claims: any) {
       }),
     }));
 
-    await writeAudit(AUDIT_TABLE, {
-      actor:      claims['cognito:username'],
-      actorRole:  'manager',
-      action:     'BIOMETRIC_RESET',
-      entityType: 'request',
-      entityId:   requestId,
-      details:    { userId: item.userId, credentialsDeleted: credentials.length },
-    });
-
     return json(200, { message: 'Biometria resettata' });
   }
 
@@ -221,15 +210,6 @@ async function approvaRequest(requestId: string, claims: any) {
     }),
   }));
 
-  await writeAudit(AUDIT_TABLE, {
-    actor:      claims['cognito:username'],
-    actorRole:  'manager',
-    action:     'REQUEST_APPROVE',
-    entityType: 'request',
-    entityId:   requestId,
-    details:    { userId: item.userId, data: item.data, tipo: item.tipo },
-  });
-
   return json(200, { message: 'Richiesta approvata' });
 }
 
@@ -252,15 +232,6 @@ async function rifiutaRequest(requestId: string, event: APIGatewayProxyEvent, cl
       ':m': motivo.trim(),
     }),
   }));
-
-  await writeAudit(AUDIT_TABLE, {
-    actor:      claims['cognito:username'],
-    actorRole:  'manager',
-    action:     'REQUEST_REJECT',
-    entityType: 'request',
-    entityId:   requestId,
-    details:    { userId: item.userId, motivo: motivo.trim() },
-  });
 
   return json(200, { message: 'Richiesta rifiutata' });
 }

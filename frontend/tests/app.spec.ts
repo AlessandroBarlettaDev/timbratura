@@ -1,5 +1,18 @@
 import { TestBed } from '@angular/core/testing';
-import { App } from './app';
+import { App } from '../src/app/app';
+
+// window.matchMedia non è implementato in jsdom
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+});
 
 describe('App', () => {
   beforeEach(async () => {
@@ -14,10 +27,10 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render title', async () => {
+  it('should render router-outlet', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, frontend');
+    expect(compiled.querySelector('router-outlet')).toBeTruthy();
   });
 });

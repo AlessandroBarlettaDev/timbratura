@@ -5,13 +5,11 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { getJwtClaims, isManagerClaims } from './auth';
-import { writeAudit } from './audit';
 
 const dynamo        = new DynamoDBClient({});
 const TABLE_NAME       = process.env.STAZIONI_TABLE_NAME!;
 const TIMBRATURE_TABLE = process.env.TIMBRATURE_TABLE_NAME!;
 const JWT_SECRET       = process.env.JWT_SECRET!;
-const AUDIT_TABLE      = process.env.AUDIT_TABLE_NAME!;
 const APP_URL          = process.env.APP_URL ?? 'http://localhost:4200';
 const QR_TTL_SECS   = 3 * 60;  // il QR scade dopo 3 minuti
 
@@ -74,15 +72,6 @@ async function createStazione(event: APIGatewayProxyEvent, claims: any) {
     }),
   }));
 
-  await writeAudit(AUDIT_TABLE, {
-    actor:      claims?.['cognito:username'] ?? 'system',
-    actorRole:  'manager',
-    action:     'STATION_CREATE',
-    entityType: 'station',
-    entityId:   stationId,
-    details:    { descrizione, codice },
-  });
-
   return json(201, { stationId, descrizione, codice });
 }
 
@@ -136,14 +125,6 @@ async function deleteStazione(stationId: string, claims: any) {
     TableName: TABLE_NAME,
     Key: marshall({ stationId }),
   }));
-
-  await writeAudit(AUDIT_TABLE, {
-    actor:      claims?.['cognito:username'] ?? 'system',
-    actorRole:  'manager',
-    action:     'STATION_DELETE',
-    entityType: 'station',
-    entityId:   stationId,
-  });
 
   return json(200, { message: 'Stazione eliminata' });
 }

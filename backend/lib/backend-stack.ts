@@ -16,8 +16,7 @@ export class BackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: BackendStackProps) {
     super(scope, id, props);
 
-    const suffix      = props?.deployEnv ? `-${props.deployEnv}` : '';
-    const auditEnabled = props?.deployEnv ? 'false' : 'true'; // audit disabilitato in dev per ridurre costi DynamoDB
+    const suffix = props?.deployEnv ? `-${props.deployEnv}` : '';
 
     // Hosting S3 + CloudFront — creato prima di Cognito per passare l'appUrl al template email
     const hosting = new HostingConfig(this, 'Hosting');
@@ -37,8 +36,6 @@ export class BackendStack extends cdk.Stack {
       environment: {
         USER_POOL_ID:        cognito.userPool.userPoolId,
         WEBAUTHN_TABLE_NAME: dynamo.webAuthnTable.tableName,
-        AUDIT_TABLE_NAME:    dynamo.auditLogTable.tableName,
-        AUDIT_ENABLED:       auditEnabled,
       },
     });
 
@@ -53,7 +50,6 @@ export class BackendStack extends cdk.Stack {
       'cognito-idp:AdminResetUserPassword',
     );
     dynamo.webAuthnTable.grantReadWriteData(usersHandler);
-    dynamo.auditLogTable.grantWriteData(usersHandler);
 
 
     // Lambda per la registrazione biometrica (WebAuthn custom)
@@ -83,15 +79,12 @@ export class BackendStack extends cdk.Stack {
       environment: {
         STAZIONI_TABLE_NAME:   dynamo.stazioniTable.tableName,
         TIMBRATURE_TABLE_NAME: dynamo.timbratureTable.tableName,
-        AUDIT_TABLE_NAME:      dynamo.auditLogTable.tableName,
         JWT_SECRET:            jwtSecret,
         APP_URL:               appUrl,
-        AUDIT_ENABLED:         auditEnabled,
       },
     });
     dynamo.stazioniTable.grantReadWriteData(stazioniHandler);
     dynamo.timbratureTable.grantReadData(stazioniHandler);
-    dynamo.auditLogTable.grantWriteData(stazioniHandler);
 
     // Lambda per la registrazione delle timbrature (entrate/uscite)
     const timbratureHandler = new NodejsFunction(this, 'TimbratureHandler', {
@@ -122,12 +115,9 @@ export class BackendStack extends cdk.Stack {
       environment: {
         CONTRACTS_TABLE_NAME: dynamo.contractsTable.tableName,
         USER_POOL_ID:         cognito.userPool.userPoolId,
-        AUDIT_TABLE_NAME:     dynamo.auditLogTable.tableName,
-        AUDIT_ENABLED:        auditEnabled,
       },
     });
     dynamo.contractsTable.grantReadWriteData(contractsHandler);
-    dynamo.auditLogTable.grantWriteData(contractsHandler);
     cognito.userPool.grant(contractsHandler, 'cognito-idp:AdminGetUser');
 
     // Lambda per le richieste di timbratura manuale e reset biometria
@@ -140,29 +130,15 @@ export class BackendStack extends cdk.Stack {
         TIMBRATURE_TABLE_NAME: dynamo.timbratureTable.tableName,
         WEBAUTHN_TABLE_NAME:   dynamo.webAuthnTable.tableName,
         USER_POOL_ID:          cognito.userPool.userPoolId,
-        AUDIT_TABLE_NAME:      dynamo.auditLogTable.tableName,
-        AUDIT_ENABLED:         auditEnabled,
       },
     });
     dynamo.requestsTable.grantReadWriteData(requestsHandler);
     dynamo.timbratureTable.grantReadWriteData(requestsHandler);
     dynamo.webAuthnTable.grantReadWriteData(requestsHandler);
-    dynamo.auditLogTable.grantWriteData(requestsHandler);
     cognito.userPool.grant(requestsHandler,
       'cognito-idp:AdminGetUser',
       'cognito-idp:AdminUpdateUserAttributes',
     );
-
-    // Lambda per la consultazione dell'audit trail
-    const auditHandler = new NodejsFunction(this, 'AuditHandler', {
-      runtime: Runtime.NODEJS_22_X,
-      entry:   path.join(__dirname, 'lambda/audit-handler.ts'),
-      handler: 'handler',
-      environment: {
-        AUDIT_TABLE_NAME: dynamo.auditLogTable.tableName,
-      },
-    });
-    dynamo.auditLogTable.grantReadData(auditHandler);
 
     // API Gateway
     const api = new ApiConfig(this, 'Api', { userPool: cognito.userPool, appUrl });
@@ -173,6 +149,5 @@ export class BackendStack extends cdk.Stack {
     api.addTimbratureRoutes(timbratureHandler);
     api.addRequestsRoutes(requestsHandler);
     api.addContractsRoutes(contractsHandler);
-    api.addAuditRoutes(auditHandler);
   }
 }

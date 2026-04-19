@@ -1,17 +1,8 @@
-// import * as cdk from 'aws-cdk-lib/core';
-// import { Template } from 'aws-cdk-lib/assertions';
-// import * as Backend from '../lib/backend-stack';
+// I test CDK sono stati rimossi.
+// I test di business logic si trovano in:
+//   - auth.test.ts       → getJwtClaims, isManagerClaims, isEmployeeClaims
+//   - audit.test.ts      → writeAudit (mock DynamoDB)
+//   - timbrature.test.ts → haversineMeters, calcolaTipo, validazione QR
 
-// example test. To run these tests, uncomment this file along with the
-// example resource in lib/backend-stack.ts
-test('SQS Queue Created', () => {
-//   const app = new cdk.App();
-//     // WHEN
-//   const stack = new Backend.BackendStack(app, 'MyTestStack');
-//     // THEN
-//   const template = Template.fromStack(stack);
+test('suite placeholder', () => { /* vedere gli altri file di test */ });
 
-//   template.hasResourceProperties('AWS::SQS::Queue', {
-//     VisibilityTimeout: 300
-//   });
-});

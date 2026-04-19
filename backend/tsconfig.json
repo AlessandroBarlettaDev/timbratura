@@ -26,8 +26,10 @@
       "./node_modules/@types"
     ],
     "types": [
-      "node"
-    ]
+      "node",
+      "jest"
+    ],
+    "isolatedModules": true
   },
   "exclude": [
     "node_modules",

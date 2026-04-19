@@ -4,13 +4,11 @@ import { CognitoIdentityProviderClient, AdminGetUserCommand } from '@aws-sdk/cli
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import * as crypto from 'crypto';
 import { getJwtClaims, isManagerClaims } from './auth';
-import { writeAudit } from './audit';
 
 const dynamo          = new DynamoDBClient({});
 const cognito         = new CognitoIdentityProviderClient({});
 const CONTRACTS_TABLE = process.env.CONTRACTS_TABLE_NAME!;
 const USER_POOL_ID    = process.env.USER_POOL_ID!;
-const AUDIT_TABLE     = process.env.AUDIT_TABLE_NAME!;
 
 // Punto di ingresso
 export const handler = async (event: APIGatewayProxyEvent) => {
@@ -99,15 +97,6 @@ async function createContratto(event: APIGatewayProxyEvent, claims: any) {
 
   await dynamo.send(new PutItemCommand({ TableName: CONTRACTS_TABLE, Item: marshall(item) }));
 
-  await writeAudit(AUDIT_TABLE, {
-    actor:      claims['cognito:username'],
-    actorRole:  'manager',
-    action:     'CONTRACT_CREATE',
-    entityType: 'contract',
-    entityId:   contractId,
-    details:    { userId, tipoContratto, dataInizio },
-  });
-
   return json(201, { contractId });
 }
 
@@ -189,14 +178,6 @@ async function updateContratto(contractId: string, event: APIGatewayProxyEvent, 
     ConditionExpression:       'attribute_exists(contractId)',
   }));
 
-  await writeAudit(AUDIT_TABLE, {
-    actor:      claims['cognito:username'],
-    actorRole:  'manager',
-    action:     'CONTRACT_UPDATE',
-    entityType: 'contract',
-    entityId:   contractId,
-  });
-
   return json(200, { message: 'Contratto aggiornato' });
 }
 
@@ -206,14 +187,6 @@ async function deleteContratto(contractId: string, claims: any) {
     TableName: CONTRACTS_TABLE,
     Key: marshall({ contractId }),
   }));
-
-  await writeAudit(AUDIT_TABLE, {
-    actor:      claims['cognito:username'],
-    actorRole:  'manager',
-    action:     'CONTRACT_DELETE',
-    entityType: 'contract',
-    entityId:   contractId,
-  });
 
   return json(200, { message: 'Contratto eliminato' });
 }

@@ -12,7 +12,6 @@ import {
 import { DynamoDBClient, QueryCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { getJwtClaims, isManagerClaims } from './auth';
-import { writeAudit } from './audit';
 
 function cognitoErrorToHttp(err: any): { status: number; message: string } {
   switch (err.name) {
@@ -31,7 +30,6 @@ const cognitoClient = new CognitoIdentityProviderClient({});
 const dynamoClient  = new DynamoDBClient({});
 const USER_POOL_ID    = process.env.USER_POOL_ID!;
 const WEBAUTHN_TABLE  = process.env.WEBAUTHN_TABLE_NAME!;
-const AUDIT_TABLE     = process.env.AUDIT_TABLE_NAME!;
 
 // Punto di ingresso — API Gateway chiama questa funzione per ogni richiesta su /users
 export const handler = async (event: APIGatewayProxyEvent) => {
@@ -119,15 +117,6 @@ async function createEmployee(event: APIGatewayProxyEvent, claims: any) {
       GroupName: groupName,
     }));
 
-    await writeAudit(AUDIT_TABLE, {
-      actor:      claims?.['cognito:username'] ?? 'system',
-      actorRole:  'manager',
-      action:     'USER_CREATE',
-      entityType: 'user',
-      entityId:   email,
-      details:    { ruolo: groupName },
-    });
-
     return json(201, { message: 'Dipendente creato' });
 
   } catch (err: any) {
@@ -183,14 +172,6 @@ async function updateEmployee(userId: string, event: APIGatewayProxyEvent, claim
         { Name: 'custom:codice_fiscale',    Value: codice_fiscale    ?? '' },
       ],
     }));
-    await writeAudit(AUDIT_TABLE, {
-      actor:      claims?.['cognito:username'] ?? 'system',
-      actorRole:  'manager',
-      action:     'USER_UPDATE',
-      entityType: 'user',
-      entityId:   userId,
-    });
-
     return json(200, { message: 'Dipendente aggiornato' });
   } catch (err: any) {
     const { status, message } = cognitoErrorToHttp(err);
@@ -212,13 +193,6 @@ async function resetPassword(userId: string, claims: any) {
       Username:       userId,
       UserAttributes: [{ Name: 'custom:password_changed', Value: 'false' }],
     }));
-    await writeAudit(AUDIT_TABLE, {
-      actor:      claims?.['cognito:username'] ?? 'system',
-      actorRole:  'manager',
-      action:     'PASSWORD_RESET',
-      entityType: 'user',
-      entityId:   userId,
-    });
     return json(200, { message: 'Password temporanea inviata per email' });
   } catch (err: any) {
     const { status, message } = cognitoErrorToHttp(err);
@@ -250,15 +224,6 @@ async function resetBiometrics(userId: string, claims: any) {
       Username:       userId,
       UserAttributes: [{ Name: 'custom:biometrics_reg', Value: 'false' }],
     }));
-
-    await writeAudit(AUDIT_TABLE, {
-      actor:      claims?.['cognito:username'] ?? 'system',
-      actorRole:  'manager',
-      action:     'BIOMETRIC_RESET',
-      entityType: 'user',
-      entityId:   userId,
-      details:    { credentialsDeleted: credentials.length },
-    });
 
     return json(200, { message: 'Biometria resettata' });
   } catch (err: any) {
@@ -328,14 +293,6 @@ async function deleteEmployee(userId: string, claims: any) {
         Key: marshall({ credentialId: c.credentialId }),
       }))
     ));
-
-    await writeAudit(AUDIT_TABLE, {
-      actor:      claims?.['cognito:username'] ?? 'system',
-      actorRole:  'manager',
-      action:     'USER_DELETE',
-      entityType: 'user',
-      entityId:   userId,
-    });
 
     return json(200, { message: 'Dipendente eliminato' });
   } catch (err: any) {

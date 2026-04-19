@@ -78,7 +78,7 @@ Sistema di gestione presenze con autenticazione biometrica (WebAuthn/FIDO2), svi
 │              ┌────────────────────────────────────────┐           │
 │              │               DynamoDB                 │           │
 │              │  WebAuthn │ Timbrature │ Stazioni       │           │
-│              │  Requests │ Contracts  │ AuditLog       │           │
+│              │  Requests │ Contracts                  │           │
 │              └────────────────────────────────────────┘           │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -89,7 +89,7 @@ Sistema di gestione presenze con autenticazione biometrica (WebAuthn/FIDO2), svi
 | **Cognito** | Gestione identità — registrazione, login, token JWT, WebAuthn nativo |
 | **API Gateway** | Unico punto di ingresso REST — autorizzazione Cognito o JWT custom |
 | **Lambda (×6)** | Logica applicativa serverless — users, biometric, timbrature, stazioni, requests, contracts |
-| **DynamoDB (×6)** | Persistenza — credenziali biometriche, timbrature, stazioni, richieste manuali, contratti, audit log |
+| **DynamoDB (×5)** | Persistenza — credenziali biometriche, timbrature, stazioni, richieste manuali, contratti |
 
 ---
 
@@ -109,8 +109,7 @@ timbratura/
 │   │       ├── stations-handler.ts    # Stazioni + QR
 │   │       ├── users-handler.ts       # Gestione utenti Cognito
 │   │       ├── requests-handler.ts    # Richieste di timbratura manuale
-│   │       ├── contracts-handler.ts   # Gestione contratti dipendenti
-│   │       └── audit.ts               # Utility scrittura audit log (best-effort)
+│   │       └── contracts-handler.ts   # Gestione contratti dipendenti
 │   └── package.json
 │
 ├── frontend/                   # Applicazione Angular 21
@@ -217,7 +216,6 @@ Cinque sezioni accessibili dalla sidebar:
 - **Utenti** — lista con badge presenza in tempo reale; dettaglio utente con sezioni collassabili (Dettagli e Contratto, default chiuse); anagrafica completa; gestione contratto con CRUD (tipo, date, ore settimanali, retribuzione lorda/netta, CCNL, ferie, permessi ROL, ecc.); timbrature visualizzate per turno (entrata + uscita abbinate con durata), statistiche per periodo (ore lavorate, giorni lavorati, media giornaliera); modifica, eliminazione; export Excel con 4 sezioni: anagrafica, dati contrattuali, analisi del periodo (ore attese vs lavorate, straordinari, stima stipendio) e tabella turni con colonna ore decimali
 - **Stazioni** — lista con stato, dettaglio (coordinate GPS, ultima attività), creazione (codice auto-generato `STZ-XXXXXX`), eliminazione
 - **Richieste** — lista richieste di timbratura manuale pendenti con badge contatore in sidebar; approvazione con modale di contesto (mostra le timbrature già presenti per quel giorno); rifiuto con motivo obbligatorio
-- **Audit Trail** — log completo delle operazioni sensibili con filtri per periodo; visualizzazione di attore, ruolo, azione, entità e dettagli
 
 Il footer della sidebar espone il pulsante **☾ Scuro / ☀ Chiaro** per alternare tra tema chiaro e scuro (vedi §11).
 
@@ -264,7 +262,6 @@ Gestisce il caso in cui un dipendente dimentica di timbrare entrata o uscita.
 | **Pending-entry TTL** | Timbratura | La conferma deve avvenire entro 5 minuti, altrimenti il token scade |
 | **CORS** | API Gateway | Ristretto al dominio CloudFront |
 | **Gruppi Cognito** | Autorizzazione | `manager` e `employee` — verificati nei claim JWT ad ogni richiesta |
-| **Audit trail** | Tutte le operazioni sensibili | Ogni azione di creazione, modifica o cancellazione viene registrata in `AuditLog` con attore, ruolo, entità e timestamp — scrittura best-effort (non blocca l'operazione principale) |
 
 ---
 
@@ -359,24 +356,6 @@ PK: `contractId` — GSI: `userId-index` su `userId` (SK: `dataInizio`, ordine d
 | `createdAt` | String | ISO 8601 |
 | `updatedAt` | String | ISO 8601 |
 
-### AuditLog
-
-PK: `auditId` (`ISO#hex`) — GSI: `actor-index` su `actor` + `auditId` — GSI: `entity-index` su `entityType` + `auditId` — TTL: 5 anni
-
-| Campo | Tipo | Descrizione |
-|---|---|---|
-| `auditId` | PK | `<ISO 8601>#<4 byte hex>` — ordinamento cronologico garantito |
-| `timestamp` | String | ISO 8601 — data/ora dell'evento |
-| `actor` | GSI | Username Cognito di chi ha eseguito l'azione |
-| `actorRole` | String | `manager` / `employee` / `system` |
-| `action` | String | `USER_CREATE` / `USER_UPDATE` / `USER_DELETE` / `REQUEST_APPROVE` / `REQUEST_REJECT` / `CONTRACT_CREATE` / `CONTRACT_UPDATE` / `CONTRACT_DELETE` / `STATION_CREATE` / `STATION_DELETE` / `BIOMETRIC_REGISTER` / `PASSWORD_CHANGE` |
-| `entityType` | GSI | `user` / `request` / `contract` / `station` |
-| `entityId` | String | ID dell'entità coinvolta |
-| `details` | String\|null | JSON serializzato — dettagli aggiuntivi sull'azione |
-| `expiresAt` | Number | TTL Unix — 5 anni dalla scrittura |
-
-Le scritture sono **best-effort**: un errore nel log non blocca l'operazione principale.
-
 ---
 
 ## 8. Rotte API
@@ -417,9 +396,6 @@ Le scritture sono **best-effort**: un errore nel log non blocca l'operazione pri
 | `/contracts/me` | GET | Cognito | Contratti del dipendente loggato |
 | `/contracts/{id}` | PUT | Cognito (manager) | Modifica contratto |
 | `/contracts/{id}` | DELETE | Cognito (manager) | Elimina contratto |
-| `/audit` | GET | Cognito (manager) | Lista audit trail con filtri opzionali (`?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=50`) |
-| `/audit/actor/{actor}` | GET | Cognito (manager) | Audit trail filtrato per attore (`?limit=50`) |
-| `/audit/entity/{entityType}/{entityId}` | GET | Cognito (manager) | Audit trail filtrato per entità |
 
 ---
 
@@ -511,12 +487,6 @@ Le credenziali WebAuthn sono legate al dispositivo fisico e non possono essere t
 
 In entrambi i casi, al prossimo login l'utente viene reindirizzato a `/first-access` per registrare il nuovo dispositivo.
 
-**Audit trail**
-Ogni operazione sensibile scrive una voce nella tabella `AuditLog`. Le operazioni tracciate sono: creazione/modifica/cancellazione di utenti, contratti e stazioni; approvazione e rifiuto di richieste manuali; reset password e reset biometria. La scrittura è **best-effort**: se il log fallisce (es. timeout DynamoDB), l'operazione principale va comunque a buon fine e l'errore viene stampato in CloudWatch senza propagarsi al client.
-
-La funzione `writeAudit()` in `audit.ts` è condivisa tra tutti i Lambda. Ogni voce include: chi ha agito (`actor` + `actorRole`), l'azione (`action`), l'entità coinvolta (`entityType` + `entityId`), il timestamp e dettagli opzionali in JSON. Il PK è `<ISO 8601>#<4 byte hex>` — la parte ISO garantisce ordine cronologico naturale; il suffisso hex evita collisioni in caso di eventi concorrenti. Le voci scadono automaticamente dopo 5 anni tramite TTL DynamoDB.
-
-In ambiente di sviluppo (`dev`) l'audit è **disabilitato** tramite la variabile d'ambiente `AUDIT_ENABLED=false`, impostata automaticamente da CDK su tutte le Lambda quando si deploya con suffisso dev. Questo evita che le sessioni di test generino centinaia di scritture superflue su DynamoDB, contenendo i costi entro il free tier. In produzione la variabile è `true` e il comportamento è invariato.
 
 **CloudFormation e CDK**
 AWS CloudFormation è il servizio che gestisce l'infrastruttura come codice: riceve un template che descrive le risorse desiderate (Lambda, DynamoDB, API Gateway, permessi IAM, S3, CloudFront…) e le crea, aggiorna o cancella nell'ordine corretto, con rollback automatico se qualcosa va storto. CDK (Cloud Development Kit) è un livello sopra CloudFormation: permette di descrivere la stessa infrastruttura in TypeScript invece che in JSON/YAML, poi la compila in un template CloudFormation e lo deploya. Il vantaggio è che si usa un linguaggio tipizzato con autocompletamento invece di scrivere centinaia di righe di YAML a mano. Il costo è la lentezza: ogni deploy passa per CloudFormation che crea un "changeset" (piano di modifiche), lo applica risorsa per risorsa e attende la conferma di ogni aggiornamento — anche per una modifica banale al codice di una Lambda possono volerci 4-9 minuti. Per questo esiste la modalità `hotswap` (`./deploy.sh --dev hotswap`): CDK rileva che è cambiato solo codice Lambda e bypassa CloudFormation chiamando direttamente `lambda:UpdateFunctionCode`, riducendo il tempo a ~15 secondi. Hotswap non va usato per modifiche all'infrastruttura (nuove tabelle, rotte API, permessi IAM) perché in quei casi CloudFormation è necessario per garantire la coerenza dello stack.
@@ -587,12 +557,6 @@ Le richieste scompaiono dalla lista pendenti una volta gestite. Aggiungere una v
 - Export per cedolini paga (formato UNIEMENS o similare)
 - Scheduling automatico degli export con invio email mensile
 - L'export Excel attuale include anagrafica, dati contrattuali, analisi del periodo (ore attese/lavorate, straordinari, stima stipendio) e tabella turni con ore decimali; i festivi non sono ancora dedotti dal conteggio giorni lavorativi attesi
-
-### Audit trail — eventi aggiuntivi
-L'audit trail è implementato (tabella `AuditLog`, TTL 5 anni, scrittura best-effort). Le azioni attualmente tracciate: `USER_CREATE/UPDATE/DELETE`, `REQUEST_APPROVE/REJECT`, `CONTRACT_CREATE/UPDATE/DELETE`, `STATION_CREATE/DELETE`. Possibili estensioni:
-- Accessi falliti (tentativi di brute force) — richiede gestione nel flusso Cognito
-- Cambio ruolo esplicito — attualmente incluso in `USER_UPDATE`
-- Visualizzazione log nella dashboard manager con filtri per attore o entità
 
 ### Modalità offline per la stazione
 Il flusso di timbratura richiede connettività per la verifica biometrica (chiave pubblica in DynamoDB), la firma HMAC del QR (JWT_SECRET server-side) e il salvataggio della timbratura. Quattro approcci possibili:

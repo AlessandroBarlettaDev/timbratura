@@ -18,8 +18,6 @@
         <span style="display:inline-block; background:var(--danger); color:var(--bg); border-radius:999px; font-size:11px; font-weight:700; padding:1px 7px; margin-left:8px;">{{ richiestePendentiCount }}</span>
       }
     </button>
-    <button class="nav-item" [class.active]="activeSection === 'audit'"     (click)="setSection('audit')">Audit Trail</button>
-
     <div class="sidebar-footer">
       <button class="sidebar-user-btn" (click)="apriProfilo()">
         {{ authService.utente()?.nome }} {{ authService.utente()?.cognome }}
@@ -367,66 +365,31 @@
               {{ selectedStazione.isActive ? 'Attiva' : 'Inattiva' }}
             </span>
           </span>
-          <span class="detail-label">Ultima attività</span> <span>{{ selectedStazione.lastSeen ?? '—' }}</span>
-          <span class="detail-label">Posizione</span>       <span>{{ selectedStazione.lat != null ? selectedStazione.lat + ', ' + selectedStazione.lng : '—' }}</span>
-          <span class="detail-label">Creata il</span>       <span>{{ selectedStazione.createdAt }}</span>
+          <span class="detail-label">Ultima attività</span>
+          <span>
+            @if (selectedStazione.lastSeen) {
+              {{ formatTimestamp(selectedStazione.lastSeen).data }} alle {{ formatTimestamp(selectedStazione.lastSeen).ora }}
+            } @else { — }
+          </span>
+          <span class="detail-label">Creata il</span>
+          <span>{{ formatTimestamp(selectedStazione.createdAt).data }} alle {{ formatTimestamp(selectedStazione.createdAt).ora }}</span>
         </div>
-      }
-    }
 
-    <!-- ── AUDIT TRAIL ── -->
-    @if (activeSection === 'audit') {
-      <div class="panel-header">
-        <h2 class="panel-title">Audit Trail</h2>
-        <button class="btn-detail-action" (click)="loadAuditTrail()">↻ Aggiorna</button>
-      </div>
-
-      <div style="margin-bottom:20px; padding:16px; background:var(--bg); border-radius:8px; border:1px solid var(--border);">
-        <h3 style="margin-top:0; margin-bottom:12px; font-size:14px; font-weight:600; color:var(--text);">Filtri</h3>
-        <div style="display:grid; grid-template-columns:auto auto auto 1fr; gap:12px; align-items:center;">
-          <label style="font-size:13px; color:var(--text-2);">Dal:</label>
-          <input type="date" [(ngModel)]="auditDataInizio" style="padding:8px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--surface); color:var(--text);">
-          <label style="font-size:13px; color:var(--text-2);">Al:</label>
-          <input type="date" [(ngModel)]="auditDataFine" style="padding:8px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--surface); color:var(--text);">
-          <button class="btn-detail-action" (click)="loadAuditTrail()" style="grid-column:1/-1; justify-self:start; margin-top:8px;">Applica filtri</button>
-        </div>
-      </div>
-
-      @if (auditLoading) {
-        <div class="spinner-container"><div class="spinner"></div></div>
-      } @else if (auditRecords.length > 0) {
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Timestamp</th>
-              <th>Attore</th>
-              <th>Ruolo</th>
-              <th>Azione</th>
-              <th>Entità</th>
-              <th>Dettagli</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (record of auditRecords; track record.auditId) {
-              <tr>
-                <td style="font-size:12px;">{{ formatTimestamp(record.timestamp).data }}<br>{{ formatTimestamp(record.timestamp).ora }}</td>
-                <td><strong>{{ record.actor }}</strong></td>
-                <td>
-                  <span class="badge" [class.badge-active]="record.actorRole === 'manager'" [class.badge-inactive]="record.actorRole !== 'manager'">
-                    {{ record.actorRole | titlecase }}
-                  </span>
-                </td>
-                <td style="font-size:12px; color:var(--text-2);">{{ record.action }}</td>
-                <td><span class="badge badge-active">{{ record.entityType | titlecase }}</span></td>
-                <td style="font-size:12px; color:var(--text-2); max-width:200px; white-space:normal; word-break:break-word;">
-                  {{ record.details ? (record.details | slice:0:50) + '...' : '—' }}
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      } @else {
-        <p class="empty-state">Nessun record di audit trovato per il periodo selezionato.</p>
+        @if (selectedStazione.lat != null && selectedStazione.lng != null) {
+          <div style="margin-top:20px;">
+            <p style="font-size:13px; font-weight:600; color:var(--text-2); margin-bottom:8px;">Posizione</p>
+            <iframe
+              [src]="stazioneMapUrl(selectedStazione.lat, selectedStazione.lng)"
+              style="width:100%; height:260px; border:1px solid var(--border); border-radius:8px;"
+              loading="lazy"
+              referrerpolicy="no-referrer">
+            </iframe>
+          </div>
+        } @else {
+          <div style="margin-top:20px;">
+            <span class="detail-label">Posizione</span> <span style="color:var(--text-2);">—</span>
+          </div>
+        }
       }
     }
 
