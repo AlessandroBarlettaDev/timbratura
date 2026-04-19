@@ -166,13 +166,11 @@ Il Cognito authorizer valida il JWT su ogni richiesta protetta prima che raggiun
 | `/biometric/registration/start` | POST | Cognito | BiometricHandler |
 | `/biometric/registration/complete` | POST | Cognito | BiometricHandler |
 | `/biometric/authentication/start` | POST | Nessuno | BiometricHandler |
-| `/biometric/authentication/complete` | POST | Nessuno | BiometricHandler |
 | `/stazioni` | POST, GET | Cognito | StazioniHandler |
 | `/stazioni/login` | POST | Nessuno | StazioniHandler |
 | `/stazioni/me/qr` | GET | Nessuno (JWT custom interno) | StazioniHandler |
 | `/stazioni/me/position` | POST | Nessuno (JWT custom interno) | StazioniHandler |
 | `/stazioni/{id}` | GET, DELETE | Cognito | StazioniHandler |
-| `/timbrature` | POST | Nessuno | TimbratureHandler |
 | `/timbrature` | GET | Cognito | TimbratureHandler |
 | `/timbrature/anteprima` | POST | Nessuno | TimbratureHandler |
 | `/timbrature/conferma` | POST | Nessuno | TimbratureHandler |

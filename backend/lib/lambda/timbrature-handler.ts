@@ -42,9 +42,6 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   // POST /timbrature/conferma — salva la timbratura dopo conferma utente
   if (httpMethod === 'POST' && resource === '/timbrature/conferma') return await confermaTimbratura(event);
 
-  // POST /timbrature — pubblica, identità provata da biometria + QR
-  if (httpMethod === 'POST' && resource === '/timbrature') return await registraTimbratura(event);
-
   // Rotte protette da Cognito
   const claims = getJwtClaims(event);
   if (!claims) return json(401, 'Non autenticato');
@@ -198,67 +195,6 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
   }
 
   return json(200, { tipo: tipoFinale, timestamp, nome: pending.nome, cognome: pending.cognome, durataMinuti });
-}
-
-// --- POST /timbrature ---
-// Verifica QR → verifica biometrica → recupera nome dipendente → determina tipo → salva
-async function registraTimbratura(event: APIGatewayProxyEvent) {
-  if (!event.body) return json(400, 'Body mancante');
-
-  let parsedBody: any;
-  try { parsedBody = JSON.parse(event.body); }
-  catch { return json(400, 'JSON non valido'); }
-  const { stationId, qrToken, expiresAt, assertion, sessionId, lat, lng } = parsedBody;
-  if (!stationId || !qrToken || !expiresAt || !assertion || !sessionId) {
-    return json(400, 'Parametri mancanti');
-  }
-
-  if (Math.floor(Date.now() / 1000) > parseInt(expiresAt)) {
-    return json(410, 'QR scaduto — chiedi alla stazione di aggiornarlo');
-  }
-
-  const expectedToken = crypto
-    .createHmac('sha256', JWT_SECRET)
-    .update(`${stationId}:${expiresAt}`)
-    .digest('hex');
-  if (qrToken !== expectedToken) return json(401, 'QR non valido');
-
-  const { errore: erroreGps, descrizione: stazioneDescrizione } = await validaPosizioneGps(stationId, lat, lng);
-  if (erroreGps) return json(403, erroreGps);
-
-  let userId: string;
-  try {
-    userId = await verifyAssertion(assertion, sessionId);
-  } catch (err: any) {
-    return json(401, err.message);
-  }
-
-  // Recupera nome e cognome da Cognito — salvati nel record per evitare join successivi
-  let nome = '', cognome = '';
-  try {
-    const user = await cognito.send(new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: userId }));
-    const attrs = Object.fromEntries((user.UserAttributes ?? []).map(a => [a.Name, a.Value]));
-    nome    = attrs['given_name']  ?? '';
-    cognome = attrs['family_name'] ?? '';
-  } catch {
-    // Se Cognito non risponde, la timbratura viene salvata comunque senza nome
-  }
-
-  const oggi   = new Date().toISOString().slice(0, 10);
-  const ultima = await getUltimaTimbratura(userId);
-
-  if (ultima && (Date.now() - new Date(ultima.timestamp).getTime()) < 60_000)
-    return json(429, 'Hai già timbrato di recente. Attendi almeno 60 secondi.');
-
-  const tipo   = calcolaTipo(ultima);
-
-  const timestamp = new Date().toISOString();
-  await dynamo.send(new PutItemCommand({
-    TableName: TIMBRATURE_TABLE,
-    Item: marshall({ userId, nome, cognome, timestamp, data: oggi, stationId, stazioneDescrizione, tipo }),
-  }));
-
-  return json(200, { tipo, timestamp, userId, nome, cognome });
 }
 
 // --- GET /timbrature/dashboard --- Restituisce le timbrature di oggi aggregate per stazione, con il conteggio dei presenti.

@@ -29,7 +29,6 @@ export class ApiService {
   startBiometricAuthentication(): Observable<any>                  { return this.http.post(`${this.apiUrl}/biometric/authentication/start`, {}); }
 
   // --- Timbrature ---
-  registraTimbratura(data: any): Observable<any>              { return this.http.post(`${this.apiUrl}/timbrature`, data); }
   anteprimaTimbratura(data: any): Observable<any>             { return this.http.post(`${this.apiUrl}/timbrature/anteprima`, data); }
   confermaTimbratura(confirmToken: string, tipoOverride?: string): Observable<any> { return this.http.post(`${this.apiUrl}/timbrature/conferma`, { confirmToken, tipoOverride }); }
   getMieTimbrature(mese?: string): Observable<any>            { return this.http.get(`${this.apiUrl}/timbrature/me${mese ? '?mese=' + mese : ''}`); }
