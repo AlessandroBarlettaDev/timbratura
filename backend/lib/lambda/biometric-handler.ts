@@ -39,8 +39,7 @@ export const handler = async (event: APIGatewayProxyEvent) => {
   }
 
   // --- Rotte di autenticazione (pubbliche — la verifica biometrica è la prova d'identità) ---
-  if (resource === '/biometric/authentication/start'    && httpMethod === 'POST') return await startAuthentication();
-  if (resource === '/biometric/authentication/complete' && httpMethod === 'POST') return await completeAuthentication(event);
+  if (resource === '/biometric/authentication/start' && httpMethod === 'POST') return await startAuthentication();
 
   return json(404, 'Rotta non trovata');
 };
@@ -166,10 +165,6 @@ async function startAuthentication() {
   return json(200, { options, sessionId });
 }
 
-// --- POST /biometric/authentication/complete ---
-// Verifica l'assertion biometrica, ritorna userId e credentialId per la timbratura.
-// Chiamato internamente da timbrature-handler tramite invocazione Lambda diretta,
-// ma esposto anche come endpoint per poter essere testato indipendentemente.
 export async function verifyAssertion(assertion: any, sessionId: string): Promise<string> {
   // Recupera la challenge salvata dalla sessione
   const sessionRecord = await getItem(`authSession#${sessionId}`);
@@ -204,20 +199,6 @@ export async function verifyAssertion(assertion: any, sessionId: string): Promis
   return credRecord.userId;
 }
 
-// Wrapper per l'invocazione diretta da timbrature-handler, che passa assertion e sessionId nel body per verificare l'identità del dipendente durante la timbratura.
-async function completeAuthentication(event: APIGatewayProxyEvent) {
-  if (!event.body) return json(400, 'Body mancante');
-  let parsedBody: any;
-  try { parsedBody = JSON.parse(event.body); }
-  catch { return json(400, 'JSON non valido'); }
-  const { assertion, sessionId } = parsedBody;
-  try {
-    const userId = await verifyAssertion(assertion, sessionId);
-    return json(200, { userId });
-  } catch (err: any) {
-    return json(401, err.message);
-  }
-}
 
 // --- Helpers ---
 // Recupera tutte le credenziali associate a un userId (in questo caso, dovrebbe esserci al massimo una credential per utente, ma la funzione è generica)

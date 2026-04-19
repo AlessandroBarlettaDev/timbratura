@@ -63,15 +63,6 @@ describe('ApiService', () => {
 
   // ── Timbrature ────────────────────────────────────────────────────────────
 
-  it('registraTimbratura fa POST su /timbrature', () => {
-    const data = { stationId: 's-1', qrToken: 'tok' };
-    service.registraTimbratura(data).subscribe();
-    const req = httpMock.expectOne(`${BASE}/timbrature`);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual(data);
-    req.flush({ tipo: 'entrata' });
-  });
-
   it('anteprimaTimbratura fa POST su /timbrature/anteprima', () => {
     service.anteprimaTimbratura({ stationId: 's-1' }).subscribe();
     const req = httpMock.expectOne(`${BASE}/timbrature/anteprima`);

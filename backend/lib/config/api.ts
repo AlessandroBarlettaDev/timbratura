@@ -72,9 +72,7 @@ export class ApiConfig extends Construct {
     registration.addResource('start').addMethod('POST',    new apigateway.LambdaIntegration(handler), cognitoOpts);
     registration.addResource('complete').addMethod('POST', new apigateway.LambdaIntegration(handler), cognitoOpts);
 
-    const authentication = biometric.addResource('authentication');
-    authentication.addResource('start').addMethod('POST',    new apigateway.LambdaIntegration(handler), noAuth);
-    authentication.addResource('complete').addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth);
+    biometric.addResource('authentication').addResource('start').addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth);
   }
 
   // Aggiunge le rotte /timbrature
@@ -86,7 +84,6 @@ export class ApiConfig extends Construct {
     const noAuth = { authorizationType: apigateway.AuthorizationType.NONE };
 
     const timbrature = this.api.root.addResource('timbrature');
-    timbrature.addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth);       // Registra timbratura (biometria + QR)
     timbrature.addMethod('GET',  new apigateway.LambdaIntegration(handler), cognitoOpts);  // Timbrature di un dipendente (manager)
 
     timbrature.addResource('anteprima').addMethod('POST', new apigateway.LambdaIntegration(handler), noAuth);  // Verifica QR+biometria, calcola tipo

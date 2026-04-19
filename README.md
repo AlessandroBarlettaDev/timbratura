@@ -372,8 +372,6 @@ PK: `contractId` — GSI: `userId-index` su `userId` (SK: `dataInizio`, ordine d
 | `/biometric/registration/start` | POST | Cognito | Genera challenge registrazione WebAuthn |
 | `/biometric/registration/complete` | POST | Cognito | Verifica e salva credenziale |
 | `/biometric/authentication/start` | POST | Pubblica | Genera challenge autenticazione WebAuthn |
-| `/biometric/authentication/complete` | POST | Pubblica | Verifica assertion, ritorna userId |
-| `/timbrature` | POST | Pubblica | Timbratura one-shot (QR + biometria) |
 | `/timbrature` | GET | Cognito (manager) | Timbrature di un dipendente per periodo |
 | `/timbrature/anteprima` | POST | Pubblica | Verifica QR + biometria, calcola tipo, salva pending |
 | `/timbrature/conferma` | POST | Pubblica | Conferma e salva definitivamente |

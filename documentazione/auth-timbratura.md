@@ -50,7 +50,7 @@ Il QR code è un token crittografico a brevissima durata generato dalla stazione
    ```
 5. Il frontend genera il QR code da questo URL e lo mostra a schermo
 
-### Validazione — in anteprima e one-shot
+### Validazione — in /timbrature/anteprima
 
 Il backend riceve i parametri `s`, `t`, `exp` e:
 
@@ -64,7 +64,7 @@ Il meccanismo è stateless: nessuna riga in DB, nessun lookup. La validità è g
 | File | Elementi |
 |---|---|
 | [backend/lib/lambda/stations-handler.ts](backend/lib/lambda/stations-handler.ts) | `getQr()`, costante `QR_TTL_SECS` |
-| [backend/lib/lambda/timbrature-handler.ts](backend/lib/lambda/timbrature-handler.ts) | validazione `expectedToken` in anteprima e one-shot |
+| [backend/lib/lambda/timbrature-handler.ts](backend/lib/lambda/timbrature-handler.ts) | validazione `expectedToken` in `anteprimaTimbratura()` |
 
 ---
 
@@ -156,7 +156,7 @@ verifyAssertion(assertion, sessionId):
 | File | Funzioni |
 |---|---|
 | [backend/lib/lambda/biometric-handler.ts](backend/lib/lambda/biometric-handler.ts) | `startRegistration()`, `completeRegistration()`, `startAuthentication()`, `verifyAssertion()` |
-| [backend/lib/lambda/timbrature-handler.ts](backend/lib/lambda/timbrature-handler.ts) | chiama `verifyAssertion()` in anteprima e one-shot |
+| [backend/lib/lambda/timbrature-handler.ts](backend/lib/lambda/timbrature-handler.ts) | chiama `verifyAssertion()` in `anteprimaTimbratura()` |
 
 ---
 
@@ -231,17 +231,6 @@ POST /timbrature/conferma
   └── Elimina il pending entry
 ```
 
-### Modalità B — One-shot
-
-Validazione e salvataggio in un'unica chiamata. Nessuna anteprima.
-
-```
-POST /timbrature
-  body: { s, t, exp, gps, assertion, sessionId }
-
-  └── stesse validazioni + salvataggio immediato in un unico step
-```
-
 | File | Funzioni |
 |---|---|
-| [backend/lib/lambda/timbrature-handler.ts](backend/lib/lambda/timbrature-handler.ts) | `anteprimaTimbratura()`, `confermaTimbratura()`, `registraTimbratura()` |
+| [backend/lib/lambda/timbrature-handler.ts](backend/lib/lambda/timbrature-handler.ts) | `anteprimaTimbratura()`, `confermaTimbratura()` |
