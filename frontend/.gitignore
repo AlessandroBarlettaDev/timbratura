@@ -42,3 +42,8 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Environment files — generati da deploy.sh, non versionare
+src/app/environments/environment.ts
+src/app/environments/environment.*.ts
+!src/app/environments/environment.example.ts
