@@ -13,6 +13,7 @@
   "devDependencies": {
     "@types/aws-lambda": "^8.10.161",
     "@types/jest": "^30",
+    "@types/luxon": "^3.7.1",
     "@types/node": "^24.10.1",
     "@types/uuid": "^10.0.0",
     "aws-cdk": "2.1114.1",
@@ -31,6 +32,7 @@
     "aws-cdk-lib": "^2.244.0",
     "bcryptjs": "^3.0.3",
     "constructs": "^10.5.0",
+    "luxon": "^3.7.2",
     "resend": "^6.10.0"
   }
 }

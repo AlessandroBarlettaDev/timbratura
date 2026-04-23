@@ -3,6 +3,7 @@ import { DynamoDBClient, PutItemCommand, QueryCommand, GetItemCommand, UpdateIte
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { CognitoIdentityProviderClient, AdminGetUserCommand, AdminUpdateUserAttributesCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { v4 as uuidv4 } from 'uuid';
+import { DateTime } from 'luxon';
 import { getJwtClaims, isManagerClaims } from './auth';
 
 const dynamo           = new DynamoDBClient({});
@@ -12,16 +13,9 @@ const TIMBRATURE_TABLE = process.env.TIMBRATURE_TABLE_NAME!;
 const WEBAUTHN_TABLE   = process.env.WEBAUTHN_TABLE_NAME!;
 const USER_POOL_ID     = process.env.USER_POOL_ID!;
 
-// Converte una data e un'ora locale italiana (Europe/Rome) in un timestamp ISO UTC.
-// Necessario perché il dipendente inserisce l'ora locale, ma le timbrature sono salvate in UTC.
+// Converte data (YYYY-MM-DD) e ora (HH:MM) locali italiane (Europe/Rome) in un timestamp ISO UTC.
 export function oraLocaleToIsoUtc(data: string, ora: string): string {
-  // Costruiamo la data come se fosse UTC e poi correggiamo l'offset di Rome (UTC+1 invernale, UTC+2 estivo).
-  // Il modo più robusto senza librerie esterne è usare Intl per ricavare l'offset.
-  const localDateStr = `${data}T${ora}:00`;
-  // Creiamo due Date: una interpretando la stringa come UTC, poi calcoliamo il delta
-  const asUtc   = new Date(`${localDateStr}Z`);
-  const tzOffset = new Date(asUtc.toLocaleString('en-US', { timeZone: 'Europe/Rome' })).getTime() - asUtc.getTime();
-  return new Date(asUtc.getTime() - tzOffset).toISOString();
+  return DateTime.fromISO(`${data}T${ora}:00`, { zone: 'Europe/Rome' }).toUTC().toISO()!;
 }
 
 export const handler = async (event: APIGatewayProxyEvent) => {

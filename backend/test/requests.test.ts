@@ -74,15 +74,22 @@ beforeEach(() => {
 // ── oraLocaleToIsoUtc ─────────────────────────────────────────────────────────
 
 describe('oraLocaleToIsoUtc', () => {
-  it('restituisce una stringa ISO 8601 valida', () => {
-    const result = oraLocaleToIsoUtc('2024-01-15', '14:00');
-    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  it('converte ora invernale (UTC+1): 14:00 Rome → 13:00 UTC', () => {
+    expect(oraLocaleToIsoUtc('2024-01-15', '14:00')).toBe('2024-01-15T13:00:00.000Z');
   });
 
-  it('date diverse producono timestamp diversi', () => {
-    const t1 = oraLocaleToIsoUtc('2024-01-15', '09:00');
-    const t2 = oraLocaleToIsoUtc('2024-01-16', '09:00');
-    expect(new Date(t2).getTime() - new Date(t1).getTime()).toBe(86_400_000);
+  it('converte ora estiva (UTC+2): 14:00 Rome → 12:00 UTC', () => {
+    expect(oraLocaleToIsoUtc('2024-07-15', '14:00')).toBe('2024-07-15T12:00:00.000Z');
+  });
+
+  it('gestisce mezzanotte invernale: 00:00 Rome → 23:00 UTC del giorno precedente', () => {
+    expect(oraLocaleToIsoUtc('2024-01-15', '00:00')).toBe('2024-01-14T23:00:00.000Z');
+  });
+
+  it('date diverse producono timestamp distanti esattamente 24h', () => {
+    const t1 = new Date(oraLocaleToIsoUtc('2024-01-15', '09:00')).getTime();
+    const t2 = new Date(oraLocaleToIsoUtc('2024-01-16', '09:00')).getTime();
+    expect(t2 - t1).toBe(86_400_000);
   });
 });
 

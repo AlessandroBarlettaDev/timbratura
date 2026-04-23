@@ -259,6 +259,7 @@ Gestisce il caso in cui un dipendente dimentica di timbrare entrata o uscita.
 | **GPS validation** | Timbratura | Il dipendente deve trovarsi entro 200m dalla stazione (obbligatorio se la stazione ha coordinate) |
 | **Rate limiting** | Timbratura | Blocco doppia timbratura entro 60 secondi |
 | **Sequenza entrata/uscita** | Timbratura + Richieste | Il tipo (entrata/uscita) è calcolato automaticamente — non è sceglibile dall'utente durante la timbratura QR; nelle richieste manuali il backend valida la coerenza al momento dell'approvazione |
+| **Conversione timezone** | Richieste manuali | Il dipendente inserisce data e ora locali italiane (`YYYY-MM-DD`, `HH:MM`). Il backend converte in UTC tramite `luxon` (`DateTime.fromISO(..., { zone: 'Europe/Rome' }).toUTC()`) gestendo correttamente ora legale (UTC+2 estivo) e solare (UTC+1 invernale). Il frontend riceve il timestamp UTC e lo converte in ora locale con `Date.toLocaleTimeString('it-IT')`. |
 | **Pending-entry TTL** | Timbratura | La conferma deve avvenire entro 5 minuti, altrimenti il token scade |
 | **CORS** | API Gateway | Ristretto al dominio CloudFront. Le Lambda non impostano header CORS — è API Gateway a gestirli tramite `defaultCorsPreflightOptions`. Questo garantisce una singola policy coerente e impedisce che le risposte Lambda possano sovrascriverla. |
 | **Gruppi Cognito** | Autorizzazione | `manager` e `employee` — verificati nei claim JWT ad ogni richiesta |
