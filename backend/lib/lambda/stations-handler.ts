@@ -263,7 +263,7 @@ async function getStazioneById(stationId: string) {
 }
 
 // Genera un JWT firmato con HMAC-SHA256 (crypto nativo Node, nessuna dipendenza esterna)
-function generaJwt(payload: { stationId: string; codice: string }): string {
+export function generaJwt(payload: { stationId: string; codice: string }): string {
   const header  = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const body    = Buffer.from(JSON.stringify({ ...payload, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 86400 })).toString('base64url');
   const sign    = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
@@ -271,7 +271,7 @@ function generaJwt(payload: { stationId: string; codice: string }): string {
 }
 
 // Verifica il JWT della stazione estratto dall'header Authorization
-function verificaJwtStazione(event: APIGatewayProxyEvent): { stationId: string; codice: string } | null {
+export function verificaJwtStazione(event: APIGatewayProxyEvent): { stationId: string; codice: string } | null {
   const auth = event.headers['Authorization'] ?? event.headers['authorization'];
   if (!auth?.startsWith('Bearer ')) return null;
 
@@ -292,7 +292,7 @@ function verificaJwtStazione(event: APIGatewayProxyEvent): { stationId: string; 
 function json(status: number, body: any) {
   return {
     statusCode: status,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    headers: { 'Content-Type': 'application/json' },
     body: typeof body === 'string' ? JSON.stringify({ message: body }) : JSON.stringify(body),
   };
 }

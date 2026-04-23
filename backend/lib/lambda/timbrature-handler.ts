@@ -349,7 +349,7 @@ export function calcolaTipo(ultima: any): 'entrata' | 'uscita' {
 function json(status: number, body: any) {
   return {
     statusCode: status,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    headers: { 'Content-Type': 'application/json' },
     body: typeof body === 'string' ? JSON.stringify({ message: body }) : JSON.stringify(body),
   };
 }

@@ -225,11 +225,11 @@ async function getItem(credentialId: string) {
   return result.Item ? unmarshall(result.Item) : null;
 }
 
-// Helper per formattare le risposte JSON con CORS
+// Helper per formattare le risposte JSON
 function json(status: number, body: any) {
   return {
     statusCode: status,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    headers: { 'Content-Type': 'application/json' },
     body: typeof body === 'string' ? JSON.stringify({ message: body }) : JSON.stringify(body),
   };
 }

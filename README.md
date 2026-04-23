@@ -260,7 +260,7 @@ Gestisce il caso in cui un dipendente dimentica di timbrare entrata o uscita.
 | **Rate limiting** | Timbratura | Blocco doppia timbratura entro 60 secondi |
 | **Sequenza entrata/uscita** | Timbratura + Richieste | Il tipo (entrata/uscita) è calcolato automaticamente — non è sceglibile dall'utente durante la timbratura QR; nelle richieste manuali il backend valida la coerenza al momento dell'approvazione |
 | **Pending-entry TTL** | Timbratura | La conferma deve avvenire entro 5 minuti, altrimenti il token scade |
-| **CORS** | API Gateway | Ristretto al dominio CloudFront |
+| **CORS** | API Gateway | Ristretto al dominio CloudFront. Le Lambda non impostano header CORS — è API Gateway a gestirli tramite `defaultCorsPreflightOptions`. Questo garantisce una singola policy coerente e impedisce che le risposte Lambda possano sovrascriverla. |
 | **Gruppi Cognito** | Autorizzazione | `manager` e `employee` — verificati nei claim JWT ad ogni richiesta |
 
 ---
@@ -441,6 +441,30 @@ cd frontend
 ng serve            # server di sviluppo su http://localhost:4200
 ng build            # build di produzione in dist/
 ```
+
+**Test**
+```bash
+cd backend && npm test      # tutti i test backend (Jest)
+cd frontend && npm test     # tutti i test frontend (Vitest)
+```
+
+### Suite di test backend (`backend/test/`)
+
+| File | Cosa testa |
+|---|---|
+| `auth.test.ts` | `getJwtClaims`, `isManagerClaims`, `isEmployeeClaims` — estrazione e validazione dei claim JWT Cognito |
+| `stations.test.ts` | `generaJwt`, `verificaJwtStazione` — firma HMAC-SHA256 del JWT custom delle stazioni, verifica scadenza, rejection di firma manipolata o header malformato |
+| `timbrature.test.ts` | `haversineMeters` (simmetria, soglie 200m), `calcolaTipo` (tutti i casi: nessuna precedente, ultima uscita, turno notturno, uscita dimenticata), validazione QR HMAC-SHA256 via handler |
+
+### Suite di test frontend (`frontend/tests/`)
+
+| File | Cosa testa |
+|---|---|
+| `app.spec.ts` | Creazione `AppComponent`, presenza del `router-outlet` |
+| `services/auth-interceptor.spec.ts` | Aggiunta header `Authorization` alle richieste, bypass sulle rotte pubbliche |
+| `services/user-auth.service.spec.ts` | Login, logout, refresh token, lettura attributi Cognito |
+| `services/api.service.spec.ts` | Wrapper HTTP — metodi GET/POST/PUT/DELETE, gestione errori |
+| `services/station-auth.service.spec.ts` | Login stazione, storage JWT custom, stato di autenticazione |
 
 ---
 
