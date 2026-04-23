@@ -455,6 +455,7 @@ cd frontend && npm test     # tutti i test frontend (Vitest)
 | `auth.test.ts` | `getJwtClaims`, `isManagerClaims`, `isEmployeeClaims` — estrazione e validazione dei claim JWT Cognito |
 | `stations.test.ts` | `generaJwt`, `verificaJwtStazione` — firma HMAC-SHA256 del JWT custom delle stazioni, verifica scadenza, rejection di firma manipolata o header malformato |
 | `timbrature.test.ts` | `haversineMeters` (simmetria, soglie 200m), `calcolaTipo` (tutti i casi: nessuna precedente, ultima uscita, turno notturno, uscita dimenticata), validazione QR HMAC-SHA256 via handler |
+| `requests.test.ts` | `oraLocaleToIsoUtc` (formato ISO, invarianza per date diverse), `handler` — validazione input su POST /requests, GET /requests/me, GET /requests (403 non-manager), POST /requests/{id}/approve (404, 409 già processata, reset biometria, timbratura coerente, tipo non coerente), POST /requests/{id}/reject (400, 404, 409, 200) |
 
 ### Suite di test frontend (`frontend/tests/`)
 

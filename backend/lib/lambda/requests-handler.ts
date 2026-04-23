@@ -14,7 +14,7 @@ const USER_POOL_ID     = process.env.USER_POOL_ID!;
 
 // Converte una data e un'ora locale italiana (Europe/Rome) in un timestamp ISO UTC.
 // Necessario perché il dipendente inserisce l'ora locale, ma le timbrature sono salvate in UTC.
-function oraLocaleToIsoUtc(data: string, ora: string): string {
+export function oraLocaleToIsoUtc(data: string, ora: string): string {
   // Costruiamo la data come se fosse UTC e poi correggiamo l'offset di Rome (UTC+1 invernale, UTC+2 estivo).
   // Il modo più robusto senza librerie esterne è usare Intl per ricavare l'offset.
   const localDateStr = `${data}T${ora}:00`;
