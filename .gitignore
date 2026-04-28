@@ -1,1 +1,65 @@
-node_modules
+# ── Sistema ───────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/mcp.json
+.history/
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# ── Backend ───────────────────────────────────────────────────────────────────
+backend/node_modules/
+backend/dist/
+backend/*.js
+!backend/jest.config.js
+backend/*.d.ts
+backend/cdk.out/
+backend/.cdk.staging/
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/tmp/
+frontend/out-tsc/
+frontend/bazel-out/
+frontend/.angular/cache/
+frontend/.sass-cache/
+frontend/connect.lock
+frontend/coverage/
+frontend/libpeerconnection.log
+frontend/testem.log
+frontend/typings/
+frontend/__screenshots__/
+frontend/src/app/environments/environment.ts
+frontend/src/app/environments/environment.*.ts
+!frontend/src/app/environments/environment.example.ts
+npm-debug.log
+yarn-error.log
+
+# ── Tesi (LaTeX) ──────────────────────────────────────────────────────────────
+Tesi_Triennale_Alessandro_Barletta/*.aux
+Tesi_Triennale_Alessandro_Barletta/*.fls
+Tesi_Triennale_Alessandro_Barletta/*.fdb_latexmk
+Tesi_Triennale_Alessandro_Barletta/*.synctex.gz
+Tesi_Triennale_Alessandro_Barletta/*.toc
+Tesi_Triennale_Alessandro_Barletta/*.out
+Tesi_Triennale_Alessandro_Barletta/*.lof
+Tesi_Triennale_Alessandro_Barletta/*.lot
+Tesi_Triennale_Alessandro_Barletta/*.bbl
+Tesi_Triennale_Alessandro_Barletta/*.blg
+Tesi_Triennale_Alessandro_Barletta/*.bcf
+Tesi_Triennale_Alessandro_Barletta/*.run.xml
+Tesi_Triennale_Alessandro_Barletta/_minted-*/
+Tesi_Triennale_Alessandro_Barletta/main.pdf
