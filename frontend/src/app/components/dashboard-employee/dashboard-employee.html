@@ -61,6 +61,10 @@
                 </span>
               </div>
               <div class="detail-item">
+                <span class="detail-label">Cambio password</span>
+                <button class="btn-detail-action" style="font-size:12px; padding:4px 10px;" (click)="openCambioPasswordModal()">Richiedi cambio password</button>
+              </div>
+              <div class="detail-item">
                 <span class="detail-label">Presente ora</span>
                 @if (presenteOra === true) {
                   <span class="badge badge-active">Sì</span>
@@ -116,48 +120,40 @@
           @if (requestsLoading) {
             <div class="spinner-container"><div class="spinner"></div></div>
           } @else if (mieRequests.length > 0) {
-            <div style="overflow-x: auto;">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Tipo</th>
-                    <th>Ora</th>
-                    <th>Nota</th>
-                    <th>Stato</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (r of mieRequests; track r.requestId) {
-                    <tr>
-                      <td>{{ r.tipoRichiesta === 'reset_biometria' ? '—' : r.data }}</td>
-                      <td>
-                        @if (r.tipoRichiesta === 'reset_biometria') {
-                          <span class="badge badge-purple">Reset biometria</span>
-                        } @else {
-                          <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
-                            {{ r.tipo | titlecase }}
-                          </span>
-                        }
-                      </td>
-                      <td>{{ r.tipoRichiesta === 'reset_biometria' ? '—' : r.ora }}</td>
-                      <td style="max-width:200px; white-space:normal; word-break:break-word;">{{ r.nota }}</td>
-                      <td>
-                        <span class="badge"
-                          [class.badge-inactive]="r.stato === 'pendente'"
-                          [class.badge-active]="r.stato === 'approvata'"
-                          [style.background]="r.stato === 'rifiutata' ? 'var(--danger-bg)' : ''"
-                          [style.color]="r.stato === 'rifiutata' ? 'var(--danger)' : ''">
-                          {{ statoLabel(r.stato) }}
-                        </span>
-                        @if (r.stato === 'rifiutata' && r.motivoRifiuto) {
-                          <span style="display:block; font-size:11px; color:var(--text-m); margin-top:4px;">{{ r.motivoRifiuto }}</span>
-                        }
-                      </td>
-                    </tr>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              @for (r of mieRequests; track r.requestId) {
+                <div style="border:1px solid var(--border); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:8px;">
+                  <!-- Riga 1: tipo badge + stato -->
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                    @if (r.tipoRichiesta === 'reset_biometria') {
+                      <span class="badge badge-purple">Reset biometria</span>
+                    } @else {
+                      <span class="badge" [class.badge-active]="r.tipo === 'entrata'" [class.badge-inactive]="r.tipo === 'uscita'">
+                        {{ r.tipo | titlecase }}
+                      </span>
+                    }
+                    <span class="badge"
+                      [class.badge-inactive]="r.stato === 'pendente'"
+                      [class.badge-active]="r.stato === 'approvata'"
+                      [style.background]="r.stato === 'rifiutata' ? 'var(--danger-bg)' : ''"
+                      [style.color]="r.stato === 'rifiutata' ? 'var(--danger)' : ''">
+                      {{ statoLabel(r.stato) }}
+                    </span>
+                  </div>
+                  <!-- Riga 2: data + ora (solo per timbrature) -->
+                  @if (r.tipoRichiesta !== 'reset_biometria') {
+                    <div style="font-size:13px; color:var(--text-m);">{{ r.data }} &nbsp;·&nbsp; {{ r.ora }}</div>
                   }
-                </tbody>
-              </table>
+                  <!-- Nota -->
+                  @if (r.nota) {
+                    <div style="font-size:13px; color:var(--text-2); word-break:break-word;">{{ r.nota }}</div>
+                  }
+                  <!-- Motivo rifiuto -->
+                  @if (r.stato === 'rifiutata' && r.motivoRifiuto) {
+                    <div style="font-size:12px; color:var(--danger); word-break:break-word;">{{ r.motivoRifiuto }}</div>
+                  }
+                </div>
+              }
             </div>
           } @else {
             <p class="empty-state">Nessuna richiesta inviata.</p>
@@ -166,27 +162,26 @@
 
         <!-- ── TIMBRATURE ── -->
         <div class="emp-card" style="padding: 36px;">
-          <div class="panel-header" style="margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
-            <h3 class="panel-title" style="font-size: 16px;">Le mie timbrature</h3>
-            <div class="timbrature-toolbar">
-
-              <!-- Selettore anno -->
+          <div style="margin-bottom: 16px; display:flex; flex-direction:column; gap:10px;">
+            <h3 class="panel-title" style="font-size: 16px; margin:0;">Le mie timbrature</h3>
+            <!-- Riga 1: anno + mese + anno intero/mese corrente sulla stessa riga -->
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <div class="period-control">
                 <button type="button" class="period-arrow" (click)="annoPrecedente()">◀</button>
-                <span class="period-value" style="min-width: 56px;">{{ annoSelezionato }}</span>
+                <span class="period-value" style="min-width: 44px;">{{ annoSelezionato }}</span>
                 <button type="button" class="period-arrow" (click)="annoSuccessivo()">▶</button>
               </div>
 
-              <!-- Selettore mese -->
+              <div class="period-control" [style.opacity]="meseSelezionato == null ? '0.35' : '1'">
+                <button type="button" class="period-arrow" (click)="mesePrecedente()">◀</button>
+                <span class="period-value" style="min-width: 64px; text-align:center;">{{ meseSelezionato != null ? meseLabel : '—' }}</span>
+                <button type="button" class="period-arrow" (click)="meseSuccessivo()">▶</button>
+              </div>
+
               @if (meseSelezionato != null) {
-                <div class="period-control">
-                  <button type="button" class="period-arrow" (click)="mesePrecedente()">◀</button>
-                  <span class="period-value">{{ meseLabel }}</span>
-                  <button type="button" class="period-arrow" (click)="meseSuccessivo()">▶</button>
-                </div>
                 <button class="btn-detail-action" (click)="deselezionaMese()">Anno intero</button>
               } @else {
-                <button class="btn-detail-action" (click)="selezionaMeseCorrente()">Mese corrente</button>
+                <button class="btn-detail-action btn-detail-primary" (click)="selezionaMeseCorrente()">Mese corrente</button>
               }
 
               <button class="btn-detail-action" (click)="scaricaTimbratureExcel()" [disabled]="timbrature.length === 0">↓ Excel</button>
@@ -246,6 +241,28 @@
     </div>
   </div>
 </div>
+
+<!-- Modale cambio password -->
+@if (showCambioPasswordModal) {
+  <div class="modal-overlay" (click)="closeCambioPasswordModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <h2>Cambio password</h2>
+      <p style="color:var(--text-2); margin-bottom:16px; font-size:14px;">
+        Verrà inviata una password temporanea all'email associata al tuo account. Usa quella password per accedere e poi cambiala.
+      </p>
+      @if (cambioPasswordMessage) {
+        <p style="color:var(--success, #4caf50); font-size:14px; margin-bottom:12px;">{{ cambioPasswordMessage }}</p>
+        <button class="btn-forgot" (click)="closeCambioPasswordModal()">Chiudi</button>
+      } @else {
+        @if (cambioPasswordError) { <p class="modal-error">{{ cambioPasswordError }}</p> }
+        <button class="btn-login" (click)="confermaCambioPassword()" [disabled]="cambioPasswordLoading">
+          {{ cambioPasswordLoading ? 'Invio in corso…' : 'Invia password temporanea' }}
+        </button>
+        <button class="btn-forgot" (click)="closeCambioPasswordModal()">Annulla</button>
+      }
+    </div>
+  </div>
+}
 
 <!-- Modale nuova richiesta -->
 <!-- Modale reset biometria -->

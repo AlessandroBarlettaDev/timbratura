@@ -42,6 +42,11 @@ export class DashboardEmployee implements OnInit {
   resetBiometriaNote      = '';
   resetBiometriaError: string | null = null;
 
+  showCambioPasswordModal   = false;
+  cambioPasswordLoading     = false;
+  cambioPasswordMessage: string | null = null;
+  cambioPasswordError: string | null   = null;
+
   private apiService  = inject(ApiService);
   public authService  = inject(AuthService);
   private cdr         = inject(ChangeDetectorRef);
@@ -290,7 +295,11 @@ export class DashboardEmployee implements OnInit {
   loadMieRequests() {
     this.requestsLoading = true;
     this.apiService.getMieRequests().subscribe({
-      next: (data) => { this.mieRequests = data; this.requestsLoading = false; this.cdr.detectChanges(); },
+      next: (data) => {
+        this.mieRequests = [...data].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+        this.requestsLoading = false;
+        this.cdr.detectChanges();
+      },
       error: (err)  => { console.error('Errore richieste:', err); this.requestsLoading = false; this.cdr.detectChanges(); },
     });
   }
@@ -326,6 +335,34 @@ export class DashboardEmployee implements OnInit {
   }
 
   closeResetBiometriaModal() { this.showResetBiometriaModal = false; this.resetBiometriaError = null; }
+
+  openCambioPasswordModal() {
+    this.cambioPasswordMessage = null;
+    this.cambioPasswordError   = null;
+    this.showCambioPasswordModal = true;
+  }
+
+  closeCambioPasswordModal() { this.showCambioPasswordModal = false; }
+
+  confermaCambioPassword() {
+    const userId = this.authService.utente()?.userId;
+    if (!userId) return;
+    this.cambioPasswordLoading = true;
+    this.cambioPasswordError   = null;
+    this.cambioPasswordMessage = null;
+    this.apiService.resetPassword(userId).subscribe({
+      next: () => {
+        this.cambioPasswordLoading = false;
+        this.cambioPasswordMessage = 'Ti è stata inviata una password temporanea via email.';
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.cambioPasswordLoading = false;
+        this.cambioPasswordError   = err.error?.message ?? 'Errore durante la richiesta';
+        this.cdr.detectChanges();
+      },
+    });
+  }
 
   inviaResetBiometria() {
     if (!this.resetBiometriaNote.trim()) { this.resetBiometriaError = 'Il motivo è obbligatorio'; return; }

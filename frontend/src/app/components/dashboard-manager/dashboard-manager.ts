@@ -686,6 +686,7 @@ export class DashboardManager implements OnInit {
 
   // ─── Utility ──────────────────────────────────────────────────────────────
 
+  // Converte timestamp in data e ora separate, formattate in italiano
   formatTimestamp(ts: string): { data: string; ora: string } {
     const d = new Date(ts);
     return {
@@ -694,30 +695,35 @@ export class DashboardManager implements OnInit {
     };
   }
 
+  // Restituisce l'URL per visualizzare la posizione della
   stazioneMapUrl(lat: number, lng: number): SafeResourceUrl {
     const delta = 0.005;
     const url = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - delta},${lat - delta},${lng + delta},${lat + delta}&layer=mapnik&marker=${lat},${lng}`;
     return this.sanitizer.bypassSecurityTrustResourceUrl(url);
   }
 
+  // Restituisce il periodo in formato API "YYYY" o "YYYY-MM"
   private getPeriodoApi(): string {
     if (this.meseSelezionato == null) return String(this.annoSelezionato);
     return `${this.annoSelezionato}-${String(this.meseSelezionato).padStart(2, '0')}`;
   }
 
+  // Resetta il periodo di visualizzazione delle timbrature a quello corrente
   private resetPeriodoTimbrature() {
     const adesso = new Date();
     this.annoSelezionato = adesso.getFullYear();
     this.meseSelezionato = adesso.getMonth() + 1;
   }
 
+  // Converte minuti in formato "Xh Ymin"
   private formatDurata(minuti: number): string {
     if (minuti <= 0) return '0h 0min';
     const h = Math.floor(minuti / 60);
     const m = minuti % 60;
     return h > 0 ? `${h}h ${m}min` : `${m}min`;
   }
-
+  
+  // Converte una stringa durata "Xh Ymin" in ore decimali "Z,ZZ"
   private durataToDecimal(durata: string | null): string {
     if (!durata) return '';
     const h = durata.match(/(\d+)h/);
@@ -726,6 +732,7 @@ export class DashboardManager implements OnInit {
     return (tot / 60).toFixed(2).replace('.', ',');
   }
 
+  // Conta i giorni lavorativi in un dato mese (o in tutto l'anno se mese è null)
   private countWorkingDays(anno: number, mese: number | null): number {
     if (mese == null) {
       return Array.from({ length: 12 }, (_, i) => this.countWorkingDays(anno, i + 1))
