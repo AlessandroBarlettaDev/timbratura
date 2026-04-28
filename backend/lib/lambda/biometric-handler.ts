@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { DynamoDBClient, PutItemCommand, QueryCommand, GetItemCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, PutItemCommand, QueryCommand, GetItemCommand, DeleteItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import {
   generateRegistrationOptions,
@@ -190,11 +190,27 @@ export async function verifyAssertion(assertion: any, sessionId: string): Promis
 
   if (!verified) throw new Error('Verifica biometrica fallita');
 
-  // Aggiorna il counter per prevenire attacchi replay
-  await dynamo.send(new PutItemCommand({
-    TableName: TABLE_NAME,
-    Item: marshall({ ...credRecord, counter: authenticationInfo.newCounter }),
-  }));
+  // Elimina la sessione e aggiorna il counter in parallelo:
+  // - la sessione viene cancellata subito per impedire il riuso della stessa challenge
+  // - il counter viene aggiornato con conditional write: se una richiesta concorrente ha già
+  //   modificato il counter, DynamoDB lancia ConditionalCheckFailedException e questa autenticazione viene rifiutata
+  await Promise.all([
+    dynamo.send(new DeleteItemCommand({
+      TableName: TABLE_NAME,
+      Key:       marshall({ credentialId: `authSession#${sessionId}` }),
+    })),
+    dynamo.send(new UpdateItemCommand({
+      TableName:                 TABLE_NAME,
+      Key:                       marshall({ credentialId }),
+      UpdateExpression:          'SET #counter = :newCounter',
+      ConditionExpression:       '#counter = :oldCounter',
+      ExpressionAttributeNames:  { '#counter': 'counter' },
+      ExpressionAttributeValues: marshall({
+        ':newCounter': authenticationInfo.newCounter,
+        ':oldCounter': credRecord.counter,
+      }),
+    })),
+  ]);
 
   return credRecord.userId;
 }
