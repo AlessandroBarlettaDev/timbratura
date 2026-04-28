@@ -45,6 +45,7 @@ Sistema di gestione presenze con autenticazione biometrica (WebAuthn/FIDO2), svi
 - Richieste di timbratura manuale con flusso di approvazione manager
 - Dashboard manager con presenze in tempo reale e badge contatore richieste pendenti
 - Infrastruttura completamente serverless su AWS — nessun server da gestire
+- Reset biometria: richiesta con approvazione manager (flusso dipendente) o immediato dal pannello utente (flusso manager)
 
 ---
 
@@ -176,8 +177,10 @@ Ogni 3 minuti:
   1. expiresAt = ora attuale + 180 secondi
   2. qrToken = HMAC-SHA256(stationId:expiresAt)  ← firmato con il secret server
   3. Aggiorna lastSeen della stazione in DynamoDB
-  4. Conta presenti (ultima timbratura per dipendente = 'entrata')
-  5. Restituisce qrUrl, expiresAt, presenti, coordinate GPS stazione
+  4. Conta presenti oggi (ultima timbratura del giorno per dipendente = 'entrata')
+     Nota: considera solo le timbrature di oggi — un turno notturno iniziato ieri
+     appare nella dashboard manager (che interroga ieri + oggi) ma non qui.
+  5. Restituisce qrUrl, expiresAt, presenti, coordinate GPS stazione, ultimaTimbratura
 ```
 
 Il frontend converte l'URL in immagine QR, mostra il countdown e aggiorna la posizione GPS della stazione. Il QR scaduto non può essere usato — il backend verifica `expiresAt` e la firma HMAC prima di procedere.
@@ -210,7 +213,7 @@ Il flusso in due fasi (anteprima → conferma) permette al dipendente di verific
 
 ### 5.7 Dashboard Manager
 
-Cinque sezioni accessibili dalla sidebar:
+Quattro sezioni accessibili dalla sidebar:
 
 - **Dashboard** — riepilogo odierno: presenti per stazione, badge attiva/inattiva (stazione inattiva se non ha generato QR negli ultimi 6 minuti), lista timbrature del giorno
 - **Utenti** — lista con badge presenza in tempo reale; dettaglio utente con sezioni collassabili (Dettagli e Contratto, default chiuse); anagrafica completa; gestione contratto con CRUD (tipo, date, ore settimanali, retribuzione lorda/netta, CCNL, ferie, permessi ROL, ecc.); timbrature visualizzate per turno (entrata + uscita abbinate con durata), statistiche per periodo (ore lavorate, giorni lavorati, media giornaliera); modifica, eliminazione; export Excel con 4 sezioni: anagrafica, dati contrattuali, analisi del periodo (ore attese vs lavorate, straordinari, stima stipendio) e tabella turni con colonna ore decimali
@@ -262,7 +265,7 @@ Gestisce il caso in cui un dipendente dimentica di timbrare entrata o uscita.
 | **Conversione timezone** | Richieste manuali | Il dipendente inserisce data e ora locali italiane (`YYYY-MM-DD`, `HH:MM`). Il backend converte in UTC tramite `luxon` (`DateTime.fromISO(..., { zone: 'Europe/Rome' }).toUTC()`) gestendo correttamente ora legale (UTC+2 estivo) e solare (UTC+1 invernale). Il frontend riceve il timestamp UTC e lo converte in ora locale con `Date.toLocaleTimeString('it-IT')`. |
 | **Pending-entry TTL** | Timbratura | La conferma deve avvenire entro 5 minuti, altrimenti il token scade |
 | **CORS** | API Gateway | Ristretto al dominio CloudFront. Le Lambda non impostano header CORS — è API Gateway a gestirli tramite `defaultCorsPreflightOptions`. Questo garantisce una singola policy coerente e impedisce che le risposte Lambda possano sovrascriverla. |
-| **Gruppi Cognito** | Autorizzazione | `manager` e `employee` — verificati nei claim JWT ad ogni richiesta |
+| **Gruppi Cognito** | Autorizzazione | `manager` e `employee` — verificati nel claim `cognito:groups` del JWT ad ogni richiesta; il ruolo non è un attributo custom |
 
 ---
 
@@ -308,7 +311,7 @@ PK: `stationId` — GSI: `codice-index` su `codice`
 | `stationId` | PK | UUID generato alla creazione |
 | `codice` | GSI | Formato `STZ-XXXXXX` (6 hex maiuscoli) — usato per il login |
 | `descrizione` | String | Nome display della stazione |
-| `passwordHash` | String | bcrypt hash (salt=8) |
+| `passwordHash` | String | bcrypt hash (cost rounds=8, salt random generato da bcrypt) |
 | `lat` / `lng` | Number\|null | Coordinate GPS — aggiornate automaticamente dalla stazione |
 | `lastSeen` | String\|null | Ultimo QR generato — usato per calcolare lo stato attivo/inattivo (inattiva dopo 6 minuti) |
 | `createdAt` | String | ISO 8601 |
@@ -370,6 +373,8 @@ PK: `contractId` — GSI: `userId-index` su `userId` (SK: `dataInizio`, ordine d
 | `/users/{id}` | GET | Cognito (manager o self) | Dettaglio dipendente |
 | `/users/{id}` | PUT | Cognito (manager) | Modifica dipendente |
 | `/users/{id}` | DELETE | Cognito (manager) | Elimina dipendente |
+| `/users/{id}/reset-password` | POST | Cognito (manager) | Invia password temporanea via email |
+| `/users/{id}/reset-biometrics` | POST | Cognito (manager) | Reset diretto credenziali biometriche |
 | `/biometric/registration/start` | POST | Cognito | Genera challenge registrazione WebAuthn |
 | `/biometric/registration/complete` | POST | Cognito | Verifica e salva credenziale |
 | `/biometric/authentication/start` | POST | Pubblica | Genera challenge autenticazione WebAuthn |
@@ -402,7 +407,9 @@ PK: `contractId` — GSI: `userId-index` su `userId` (SK: `dataInizio`, ordine d
 
 **Attributi standard:** `email` (required, immutabile), `given_name`, `family_name`, `birthdate`
 
-**Attributi custom:** `codice_fiscale`, `role`, `password_changed`, `biometrics_reg`
+**Attributi custom:** `codice_fiscale`, `password_changed`, `biometrics_reg`
+
+Il ruolo (manager/employee) non è un attributo custom ma è gestito tramite **Gruppi Cognito** — verificato nei claim JWT (`cognito:groups`) ad ogni richiesta.
 
 **Auth flows:** `USER_SRP`, `USER_PASSWORD`, `ADMIN_USER_PASSWORD`, `CUSTOM`, `USER_AUTH`
 
