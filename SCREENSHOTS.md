@@ -14,9 +14,7 @@ Walkthrough visivo delle principali schermate, organizzato per ruolo e flusso.
 
 ## Primo accesso — Registrazione biometrica
 
-| Registrazione biometrica |
-|:-:|
-| ![Registrazione biometrica](screenshot/4_registrazione_biometrica.png) |
+<img src="screenshot/4_registrazione_biometrica.png" alt="Registrazione biometrica" width="400"/>
 
 ---
 
