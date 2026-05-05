@@ -113,7 +113,7 @@
           <table class="data-table">
             <thead><tr><th>Nome</th><th>Cognome</th><th>Email</th><th>Presenza</th></tr></thead>
             <tbody>
-              @for (u of utenti; track u.sub) {
+              @for (u of utenti; track u.id) {
                 <tr class="clickable-row" (click)="selectUser(u)">
                   <td>{{ u.given_name }}</td>
                   <td>{{ u.family_name }}</td>
@@ -135,10 +135,10 @@
       }
 
       <!-- Dettagli utente selezionato -->
-      @if (selectedUser) {
+      @if (selectedUser; as user) {
         <button class="btn-back" (click)="backToList()">← Torna alla lista</button>
         <div class="detail-header">
-          <h2 class="panel-title">{{ selectedUser.given_name }} {{ selectedUser.family_name }}</h2>
+          <h2 class="panel-title">{{ user.given_name }} {{ user.family_name }}</h2>
           <div class="detail-actions">
             <button class="btn-detail-action" (click)="openEditModal()">Modifica</button>
           </div>
@@ -152,13 +152,13 @@
           </div>
           @if (dettagliUtenteOpen) {
             <div class="detail-grid" style="margin-top:14px;">
-              <span class="detail-label">Email</span>              <span>{{ selectedUser.email }}</span>
-              <span class="detail-label">Data di nascita</span>    <span>{{ selectedUser.birthdate || '—' }}</span>
-              <span class="detail-label">Codice fiscale</span>     <span>{{ selectedUser.codice_fiscale || '—' }}</span>
+              <span class="detail-label">Email</span>              <span>{{ user.email }}</span>
+              <span class="detail-label">Data di nascita</span>    <span>{{ user.birthdate || '—' }}</span>
+              <span class="detail-label">Codice fiscale</span>     <span>{{ user.codice_fiscale || '—' }}</span>
               <span class="detail-label">Password cambiata</span>
               <span style="display:flex; align-items:center; gap:10px;">
-                <span class="badge" [class.badge-active]="selectedUser.password_changed === 'true'" [class.badge-inactive]="selectedUser.password_changed !== 'true'">
-                  {{ selectedUser.password_changed === 'true' ? 'Sì' : 'No' }}
+                <span class="badge" [class.badge-active]="user.password_changed === 'true'" [class.badge-inactive]="user.password_changed !== 'true'">
+                  {{ user.password_changed === 'true' ? 'Sì' : 'No' }}
                 </span>
                 <button class="btn-detail-action" style="font-size:12px; padding:4px 10px;" (click)="resetPasswordDipendente()" [disabled]="resetPasswordLoading">
                   {{ resetPasswordLoading ? '...' : 'Invia password temporanea' }}
@@ -169,10 +169,10 @@
               </span>
               <span class="detail-label">Biometria registrata</span>
               <span style="display:flex; align-items:center; gap:10px;">
-                <span class="badge" [class.badge-active]="selectedUser.biometrics_reg === 'true'" [class.badge-inactive]="selectedUser.biometrics_reg !== 'true'">
-                  {{ selectedUser.biometrics_reg === 'true' ? 'Sì' : 'No' }}
+                <span class="badge" [class.badge-active]="user.biometrics_reg === 'true'" [class.badge-inactive]="user.biometrics_reg !== 'true'">
+                  {{ user.biometrics_reg === 'true' ? 'Sì' : 'No' }}
                 </span>
-                @if (selectedUser.biometrics_reg === 'true') {
+                @if (user.biometrics_reg === 'true') {
                   <button class="btn-detail-action" style="font-size:12px; padding:4px 10px;" (click)="resetBiometricsDipendente()" [disabled]="resetBiometricsLoading">
                     {{ resetBiometricsLoading ? '...' : 'Reset biometria' }}
                   </button>
@@ -183,7 +183,7 @@
               </span>
               <span class="detail-label">Presente ora</span>
               <span>
-                @if (presentiOggiSet.has(selectedUser.id)) {
+                @if (presentiOggiSet.has(user.id)) {
                   <span class="badge badge-active">Sì</span>
                 } @else {
                   <span class="badge badge-inactive">No</span>
@@ -604,11 +604,11 @@
 }
 
 <!-- Elimina utente -->
-@if (showDeleteConfirm) {
+@if (showDeleteConfirm && selectedUser; as user) {
   <div class="modal-overlay" (click)="showDeleteConfirm = false">
     <div class="modal-card" style="max-width:360px; text-align:center;" (click)="$event.stopPropagation()">
       <h2>Elimina utente</h2>
-      <p style="color:var(--text-2); margin-bottom:28px;">Sei sicuro di voler eliminare <strong>{{ selectedUser.given_name }} {{ selectedUser.family_name }}</strong>? L'operazione è permanente.</p>
+      <p style="color:var(--text-2); margin-bottom:28px;">Sei sicuro di voler eliminare <strong>{{ user.given_name }} {{ user.family_name }}</strong>? L'operazione è permanente.</p>
       <button class="btn-logout" (click)="confirmDelete()">Sì, elimina definitivamente</button>
       <button class="btn-forgot" (click)="showDeleteConfirm = false">Annulla</button>
     </div>

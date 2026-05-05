@@ -157,6 +157,14 @@ async function confermaTimbratura(event: APIGatewayProxyEvent) {
   // Il frontend può sovrascrivere il tipo calcolato (es. turno notturno corretto dall'utente)
   const tipoFinale = (tipoOverride === 'entrata' || tipoOverride === 'uscita') ? tipoOverride : pending.tipo;
 
+  // Se c'è un override, verifica che la sequenza rimanga coerente
+  if (tipoOverride === 'entrata' || tipoOverride === 'uscita') {
+    const ultimaReale = await getUltimaTimbratura(pending.realUserId);
+    const tipoAtteso  = calcolaTipo(ultimaReale);
+    if (tipoFinale !== tipoAtteso)
+      return json(409, `Tipo non coerente: l'ultima timbratura è ${ultimaReale?.tipo ?? 'assente'}, quindi la prossima deve essere ${tipoAtteso}`);
+  }
+
   await dynamo.send(new PutItemCommand({
     TableName: TIMBRATURE_TABLE,
     Item: marshall({

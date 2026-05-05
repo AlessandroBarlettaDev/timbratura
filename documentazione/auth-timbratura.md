@@ -205,7 +205,7 @@ Le rotte biometriche e di timbratura pubblica non ricevono token — l'intercept
 
 La timbratura richiede tre validazioni indipendenti: QR (provenienza dalla stazione giusta), GPS (posizione fisica), biometria (identità del dipendente). Solo se tutte e tre passano la timbratura viene registrata.
 
-### Modalità A — 2 step (consigliata)
+### Flusso — 2 step (anteprima + conferma)
 
 Separa validazione e salvataggio. Permette di mostrare un'anteprima al dipendente prima di confermare.
 

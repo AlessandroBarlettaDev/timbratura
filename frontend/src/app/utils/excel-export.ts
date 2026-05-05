@@ -1,10 +1,11 @@
 import * as XLSX from 'xlsx';
+import { Contratto } from '../models';
 
 export interface ExcelExportParams {
   nome:           string;
   email?:         string;
   codiceFiscale?: string;
-  contratto?:     any;
+  contratto?:     Contratto;
   // Statistiche base — sempre presenti (non richiedono un contratto)
   stats: {
     periodoLabel:    string;

@@ -21,8 +21,8 @@ export class StationAuthService {
 
   // Autentica la stazione con codice e password — salva JWT e info in localStorage
   async login(codice: string, password: string): Promise<void> {
-    const res: any = await firstValueFrom(
-      this.http.post(`${this.apiUrl}/stazioni/login`, { codice, password })
+    const res = await firstValueFrom(
+      this.http.post<{ token: string; stazione: StazioneInfo }>(`${this.apiUrl}/stazioni/login`, { codice, password })
     );
     localStorage.setItem(TOKEN_KEY, res.token);
     localStorage.setItem(INFO_KEY,  JSON.stringify(res.stazione));

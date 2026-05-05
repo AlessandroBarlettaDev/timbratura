@@ -175,6 +175,22 @@ async function approvaRequest(requestId: string, claims: any) {
   if (item.tipo !== tipoAtteso)
     return json(409, `Tipo non coerente: prima di questo orario l'ultima timbratura è una ${ultima?.tipo ?? '—'}, quindi la successiva deve essere una ${tipoAtteso}`);
 
+  // Verifica anche la timbratura immediatamente successiva all'orario richiesto
+  const successivaResult = await dynamo.send(new QueryCommand({
+    TableName:              TIMBRATURE_TABLE,
+    KeyConditionExpression: 'userId = :uid AND #ts > :ts',
+    ExpressionAttributeNames:  { '#ts': 'timestamp' },
+    ExpressionAttributeValues: marshall({ ':uid': item.userId, ':ts': timestamp }),
+    ScanIndexForward: true,
+    Limit: 1,
+  }));
+  const successiva = successivaResult.Items?.[0] ? unmarshall(successivaResult.Items[0]) : null;
+  if (successiva) {
+    const tipoSuccessivoAtteso = item.tipo === 'entrata' ? 'uscita' : 'entrata';
+    if (successiva.tipo !== tipoSuccessivoAtteso)
+      return json(409, `Tipo non coerente: la timbratura successiva a questo orario è una ${successiva.tipo}, quindi questa deve essere ${tipoSuccessivoAtteso}`);
+  }
+
   // Recupera nome e cognome per salvarlo nella timbratura (evita join successivi)
   let nome = '', cognome = '';
   try {

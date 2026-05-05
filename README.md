@@ -538,121 +538,70 @@ Se la stazione ha coordinate GPS configurate, il dipendente deve avere il GPS at
 
 ## 12. Sviluppi futuri
 
-### Gestione assenze
-Oggi un giorno senza timbrature è semplicemente vuoto — il sistema non distingue tra assenza ingiustificata, ferie, malattia o festività. Questo gonfia le "ore mancanti" nell'export Excel e non permette al manager di capire lo stato reale della presenza.
+Funzionalità pianificate ma non ancora implementate. La documentazione dettagliata con modelli dati, algoritmi e ordine di implementazione è in [`documentazione/sviluppi-futuri.md`](documentazione/sviluppi-futuri.md).
 
-**Modello dati — tabella `Assenze`**
-```
-PK: assenzaId (UUID)
-GSI: userId-index → userId (PK) + dataInizio (SK)
-
-Campi: userId, tipo, dataInizio, dataFine, ore (per permessi parziali),
-       nota, stato (approvata/pendente/rifiutata), approvataDa, createdAt
-```
-I tipi previsti: `ferie` | `permesso` | `malattia` | `festività` | `altro`. Il range `dataInizio/dataFine` gestisce sia i giorni singoli che i periodi multi-giorno.
-
-**Festività**
-Tabella separata `Festività` con `data` + `descrizione`, configurata dal manager una volta all'anno (festività nazionali + locali). Non è per dipendente — vale globalmente per tutti.
-
-**Flussi per tipo**
-
-| Tipo | Chi crea | Approvazione |
-|---|---|---|
-| Ferie / Permesso / ROL | Dipendente richiede | Manager approva |
-| Malattia | Manager inserisce | Automaticamente approvata |
-| Festività | Manager configura calendario | N/A — globale |
-
-**Impatto sull'export Excel**
-Con le assenze, la sezione "Analisi periodo" diventa precisa:
-```
-Giorni lavorativi attesi:     23
-  di cui festività:            1
-  di cui ferie/permessi:       5
-Giorni effettivamente dovuti: 17   ← attesi - giustificati
-Ore contrattuali dovute:     136h  ← solo i giorni dovuti
-Ore lavorate:                138h
-Ore straordinarie:             2h  ← rispetto ai giorni dovuti
-```
-Senza questo, una settimana di ferie appare come 40h di assenza ingiustificata.
-
-**Complessità per fase:** CRUD assenze e visualizzazione dashboard = semplice. Integrazione nel calcolo Excel = medio. Permessi parziali in ore con sovrapposizione sulle timbrature dello stesso giorno = complesso.
-
-### Notifiche
-Avvisi automatici: richiesta approvata/rifiutata via email al dipendente; entrata non registrata oltre l'orario previsto; uscita dimenticata a fine turno.
-
-### Storico richieste per il manager
-Le richieste scompaiono dalla lista pendenti una volta gestite. Aggiungere una vista storico (approvate + rifiutate) filtrabile per dipendente e periodo.
-
-### Export avanzati
-- Export PDF firmato digitalmente delle timbrature (valore legale)
-- Export per cedolini paga (formato UNIEMENS o similare)
-- Scheduling automatico degli export con invio email mensile
-- L'export Excel attuale include anagrafica, dati contrattuali, analisi del periodo (ore attese/lavorate, straordinari, stima stipendio) e tabella turni con ore decimali; i festivi non sono ancora dedotti dal conteggio giorni lavorativi attesi
-
-### Modalità offline per la stazione
-Il flusso di timbratura richiede connettività per la verifica biometrica (chiave pubblica in DynamoDB), la firma HMAC del QR (JWT_SECRET server-side) e il salvataggio della timbratura. Quattro approcci possibili:
-
-**Opzione 1 — Batch prefetch (consigliata per offline breve)**
-La stazione, mentre è online, chiama un endpoint `GET /stazioni/me/qr?batch=N` che restituisce N token pre-firmati, ciascuno con il proprio `expiresAt` progressivo. La stazione li usa in ordine offline. 500 token × 3 minuti = ~25 ore di copertura. La verifica backend non cambia. Rischio: se la stazione è compromessa, l'attaccante ottiene tutti i token ancora validi — rischio già implicito nell'architettura attuale con token singolo.
-
-**Opzione 2 — Crittografia asimmetrica (consigliata per offline strutturale)**
-Ogni stazione ha una coppia di chiavi generata al momento della creazione: la chiave privata rimane sul dispositivo e non esce mai, la pubblica viene registrata in DynamoDB. Offline, la stazione firma i QR autonomamente con la propria chiave privata. Il backend verifica con la chiave pubblica. La compromissione di una stazione non impatta le altre. Richiede: cambio del formato token QR, procedura di provisioning al setup, gestione revoca.
-
-**Opzione 3 — Sincronizzazione postuma**
-Non risolve il problema del QR — senza connessione la stazione non può mostrare un token valido. Utile solo per il caso in cui la connessione cada a metà di una timbratura già avviata.
-
-**Opzione 4 — Secret derivato per stazione**
-Secret per stazione derivato da un master secret tramite KDF: `HMAC(masterSecret, stationId)`. Isola la compromissione per stazione, ma il master secret rimane un singolo punto di fallimento. Aggiunge complessità rispetto all'Opzione 1 senza vantaggi concreti rispetto all'Opzione 2.
-
-| Scenario | Scelta |
+| Funzionalità | Descrizione sintetica |
 |---|---|
-| Disconnessioni brevi (minuti/ore), ufficio o negozio | Opzione 1 — batch prefetch |
-| Offline strutturale (cantiere, nave, zona senza rete) | Opzione 2 — asimmetrica |
-| Non si vuole toccare il backend | SIM/4G come connessione di failover sul dispositivo stazione |
+| **Gestione assenze** | Ferie, permessi, malattia e festività — oggi un giorno senza timbrature è indistinguibile da un'assenza ingiustificata |
+| **Gestione turni** | Template orari configurabili (mattina/pomeriggio/notte) con rilevamento anomalie — vedi anche [piano-sistema-orari.md](documentazione/piano-sistema-orari.md) |
+| **Chiusura automatica turno** | Uscita forzata con spiegazione obbligatoria se il turno supera 9 ore senza timbratura di uscita |
+| **Storico richieste manager** | Vista delle richieste già gestite (approvate/rifiutate), oggi non visibili dopo la chiusura |
+| **Notifiche email** | Avvisi automatici per approvazioni/rifiuti e anomalie di presenza — richiede SES production |
+| **Export avanzati** | PDF firmato, formato UNIEMENS per cedolini paga, scheduling automatico mensile |
+| **Modalità offline stazione** | Batch prefetch (offline breve) o crittografia asimmetrica per stazione (offline strutturale) |
+| **Webhook** | Notifiche push verso endpoint del cliente al verificarsi di timbrature, approvazioni e soglie straordinario |
+| **Deploy in produzione** | SES production, dominio personalizzato, IAM minimale, DynamoDB PITR, log di audit |
 
-### Gestione turni (Scheduling)
-La logica attuale determina entrata/uscita guardando l'ultima timbratura assoluta con una soglia di 20 ore (turno notturno coperto; uscita dimenticata da >20h = nuovo turno). Per aziende con turni a rotazione formalizzati (fabbrica, ospedale, sicurezza) sarebbe utile un sistema di turni esplicito:
+---
 
-- **Template turni:** definire finestre ricorrenti (es. Mattina 06:00–14:00, Pomeriggio 14:00–22:00, Notte 22:00–06:00)
-- **Assegnazione dipendente:** ogni dipendente ha un turno attivo (o una rotazione settimanale/mensile)
-- **Logica basata sul turno:** il sistema determina entrata/uscita in base alla finestra attiva del dipendente, indipendentemente dalla soglia temporale
-- **Validazione orari:** avviso se si timbra fuori dalla finestra prevista (es. 2h prima dell'inizio turno)
-- **Presenze previste vs reali:** il manager vede chi doveva essere presente ma non ha timbrato
+## 13. Documentazione approfondita
 
-Prerequisiti: nuova tabella DynamoDB `Turni`, UI di gestione template e assegnazione in dashboard manager, aggiornamento della logica in `timbrature-handler.ts`.
+File di riferimento nella cartella [`documentazione/`](documentazione/):
 
-### Chiusura automatica turno (uscita forzata)
+### Architettura e infrastruttura
 
-Se un dipendente non timbra uscita entro 9 ore dall'entrata, il sistema può chiudere automaticamente il turno con un'**uscita forzata** al timestamp `entrata + 9h`, richiedendo una spiegazione obbligatoria.
+| File | Contenuto |
+|---|---|
+| [serverless-vs-tradizionale.md](documentazione/serverless-vs-tradizionale.md) | Perché Lambda invece di un server classico, cold start, statelessness, CDK |
+| [infrastruttura-deployment.md](documentazione/infrastruttura-deployment.md) | Stack AWS completo, tabelle DynamoDB, rotte API, script di deploy |
+| [dynamodb-modellazione.md](documentazione/dynamodb-modellazione.md) | Modellazione NoSQL, PK/SK, GSI, pattern di accesso per ciascuna tabella |
+| [costi.md](documentazione/costi.md) | Stima costi AWS per 20–2000 dipendenti, free tier, scalabilità |
 
-**Approccio senza infrastruttura aggiuntiva (implementazione immediata)**
-La forzatura avviene al momento della timbratura successiva — quando il dipendente scansiona il QR per una nuova entrata, il backend rileva il turno aperto da più di 9 ore, inserisce automaticamente l'`uscita_forzata` a `entrata + 9h`, e prima di confermare la nuova entrata mostra un modale obbligatorio dove il dipendente deve selezionare il motivo:
+### Sicurezza e autenticazione
 
-- *Straordinario autorizzato*
-- *Riunione / imprevisto*
-- *Emergenza*
-- *Dimenticanza*
-- *Altro* (con nota libera obbligatoria)
+| File | Contenuto |
+|---|---|
+| [auth-timbratura.md](documentazione/auth-timbratura.md) | Panoramica completa dei tre meccanismi di autenticazione e dell'interceptor |
+| [doppio-sistema-autenticazione.md](documentazione/doppio-sistema-autenticazione.md) | Cognito per utenti vs JWT custom per stazioni — motivazioni e differenze |
+| [webauthn-fido2.md](documentazione/webauthn-fido2.md) | Standard WebAuthn, chiave pubblica/privata, enclave, attestation vs assertion, anti-replay |
 
-Se il dipendente timbra uscita normalmente dopo le 9 ore (senza che sia arrivata una nuova entrata), lo stesso modale appare prima della conferma e l'uscita viene salvata con il timestamp reale — non viene creata alcuna uscita forzata separata.
+### Processo di timbratura
 
-La spiegazione è salvata nel record della timbratura e visibile al manager nella vista timbrature del dipendente.
+| File | Contenuto |
+|---|---|
+| [flusso-timbratura.md](documentazione/flusso-timbratura.md) | Flusso completo fase per fase con schema di sequenza e garanzie di sicurezza |
+| [flusso-due-fasi.md](documentazione/flusso-due-fasi.md) | Perché esiste l'anteprima, pending-entry pattern, analogia con il 2PC |
+| [validazione-geografica.md](documentazione/validazione-geografica.md) | Formula di Haversine, soglia 200m, limiti del GPS indoor |
+| [soglia-turni-notturni.md](documentazione/soglia-turni-notturni.md) | Euristica 20 ore: turno notturno vs uscita dimenticata, limiti e correzioni |
+| [timezone-gestione-tempo.md](documentazione/timezone-gestione-tempo.md) | UTC vs ora locale, ora legale, Luxon, il campo `data` separato dal `timestamp` |
 
-**Approccio con EventBridge (per chiusura realmente automatica)**
-Una Lambda schedulata (EventBridge cron ogni 30 minuti) scansiona i turni aperti da più di 9 ore e inserisce l'`uscita_forzata` indipendentemente dall'attività del dipendente. Il dipendente viene notificato (email via SES o avviso in-app al prossimo login) e deve fornire la spiegazione entro 24 ore; in assenza di risposta il manager riceve un avviso. Richiede: EventBridge Rule, SES production access, gestione dello stato "spiegazione pendente".
+### Gestione utenti e onboarding
 
-**Soglia 9 ore**
-Corrisponde a un turno di 8 ore + 1 ora di margine (pausa pranzo inclusa). Configurabile tramite la costante `USCITA_FORZATA_ORE` nel backend, indipendente da `TURNO_MAX_ORE` (20 ore, usata per la logica entrata/uscita). Con la **Gestione turni** (sezione precedente) questa soglia potrebbe essere derivata direttamente dalla finestra del turno assegnato al dipendente, eliminando la necessità di un valore fisso.
+| File | Contenuto |
+|---|---|
+| [onboarding-dettaglio.md](documentazione/onboarding-dettaglio.md) | Macchina a stati password/biometria, guard Angular, flusso completo dal primo login |
+| [onboarding-utenti.md](documentazione/onboarding-utenti.md) | Riferimento tecnico: attributi Cognito, API, reset da parte del manager |
 
-### Webhook per eventi
-Notifiche push verso endpoint configurati dal cliente quando:
-- Una timbratura viene registrata
-- Una richiesta manuale viene approvata/rifiutata
-- Un dipendente supera X ore di straordinario
+### Funzionalità gestionali
 
-### Produzione
-- Migrare l'invio email da `COGNITO_DEFAULT` (50/giorno) a **SES production** per volumi elevati
-- Configurare un dominio personalizzato per CloudFront e API Gateway
-- Restringere ulteriormente i permessi IAM delle Lambda (principio del minimo privilegio)
-- Abilitare DynamoDB Point-in-Time Recovery (PITR) per backup continuo
-- Aggiungere log di audit (user agent) ad ogni timbratura e approvazione — l'IP non è affidabile su rete mobile (CGNAT): la validazione geografica è già garantita dal GPS
+| File | Contenuto |
+|---|---|
+| [richieste-manuali.md](documentazione/richieste-manuali.md) | Workflow approvazione/rifiuto, validazione forward/backward, reset biometria |
+| [export-excel-calcolo-ore.md](documentazione/export-excel-calcolo-ore.md) | Calcolo ore lavorate, straordinari, giorni lavorativi, normativa |
+
+### Piani futuri
+
+| File | Contenuto |
+|---|---|
+| [sviluppi-futuri.md](documentazione/sviluppi-futuri.md) | Tutte le funzionalità pianificate con modelli dati, approcci e complessità stimata |
+| [piano-sistema-orari.md](documentazione/piano-sistema-orari.md) | ⚠️ Non implementato — piano dettagliato per template orari, rotazioni, anomalie |

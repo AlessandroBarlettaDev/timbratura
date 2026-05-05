@@ -4,6 +4,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import QRCode from 'qrcode';
 import { StationAuthService } from '../../services/station-auth.service';
 import { ApiService } from '../../services/api.service';
+import { Timbratura } from '../../models';
 
 const QR_REFRESH_MS = 3 * 60 * 1000; // 3 minuti — stesso TTL del backend
 
@@ -87,7 +88,7 @@ export class Station implements OnInit, OnDestroy {
     });
   }
 
-  private mostraNotifica(timbratura: any) {
+  private mostraNotifica(timbratura: Timbratura) {
     const ora = new Date(timbratura.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
     this.ultimaNotifica = { nome: timbratura.nome, cognome: timbratura.cognome, tipo: timbratura.tipo, ora };
     if (this.notificaTimer) clearTimeout(this.notificaTimer);

@@ -1,0 +1,17 @@
+{
+  "latex-workshop.latex.outDir": "%DIR%/out",
+  "latex-workshop.view.pdf.viewer": "tab",
+  "files.exclude": {
+    "thesis/out": true,
+    "**/*.aux": true,
+    "**/*.log": true,
+    "**/*.toc": true,
+    "**/*.fls": true,
+    "**/*.fdb_latexmk": true,
+    "**/*.synctex.gz": true,
+    "**/*.bbl": true,
+    "**/*.blg": true,
+    "**/*.bcf": true,
+    "**/*.run.xml": true
+  }
+}

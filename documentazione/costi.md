@@ -11,8 +11,8 @@
 Il sistema è interamente **serverless**: non ci sono server sempre accesi. I costi si pagano solo per le risorse effettivamente utilizzate. L'infrastruttura comprende:
 
 - **API Gateway** — gateway HTTP per tutte le chiamate frontend/stazioni
-- **Lambda** — 7 funzioni che eseguono la logica applicativa
-- **DynamoDB** — 6 tabelle NoSQL (modalità PAY_PER_REQUEST)
+- **Lambda** — 6 funzioni che eseguono la logica applicativa
+- **DynamoDB** — 5 tabelle NoSQL (modalità PAY_PER_REQUEST)
 - **Cognito** — autenticazione e gestione utenti
 - **S3 + CloudFront** — hosting del frontend Angular
 - **Due ambienti separati** — `prod` (produzione) e `dev` (sviluppo/test)
@@ -49,14 +49,12 @@ Non viene pre-allocata nessuna capacità. Si paga solo per le operazioni effettu
 
 #### Ambiente di sviluppo (dev)
 
-L'ambiente dev esegue lo stesso codice di prod, inclusa la scrittura dell'**audit trail**. Durante lo sviluppo ogni chiamata di test genera una voce su DynamoDB: con sessioni intensive di debug/test il numero di scritture può essere **10–50× superiore** a quello di produzione.
+L'ambiente dev esegue lo stesso codice di prod. Durante lo sviluppo ogni chiamata di test genera operazioni DynamoDB: con sessioni intensive di debug/test il numero di scritture può essere **10–50× superiore** a quello di produzione.
 
 | Scenario | WRU extra/mese | Costo aggiuntivo |
 |---|---|---|
 | Sviluppo leggero (poche sessioni) | ~10.000 | ~$0.01 |
 | Sviluppo intensivo (test frequenti) | ~100.000 | ~$0.14 |
-
-> **Mitigazione applicata:** la variabile d'ambiente `AUDIT_ENABLED` permette di disabilitare la scrittura dell'audit in dev, azzerando questo overhead. Vedi sezione [Ottimizzazioni](#ottimizzazioni).
 
 > Con un numero maggiore di dipendenti (es. 200) i costi di prod scalano linearmente: ~$0.20/mese.
 
@@ -109,27 +107,27 @@ Il free tier Cognito copre fino a 50.000 utenti attivi al mese senza scadenza. P
 
 ### Primo anno (free tier attivo)
 
-| Servizio | Prod | Dev (audit ON) | Dev (audit OFF) |
-|---|---|---|---|
-| DynamoDB | ~$0.02 | ~$0.05–0.16 | ~$0.00 |
-| Lambda | $0.00 | $0.00 | $0.00 |
-| API Gateway | $0.00 | $0.00 | $0.00 |
-| Cognito | $0.00 | $0.00 | $0.00 |
-| S3 + CloudFront | $0.00 | $0.00 | $0.00 |
-| **Totale mensile** | **~$0.02** | **~$0.07–0.18** | **~$0.02** |
-| **Totale annuo** | **~$0.24** | **~$0.84–2.16** | **~$0.24** |
+| Servizio | Prod | Dev |
+|---|---|---|
+| DynamoDB | ~$0.02 | ~$0.05–0.16 |
+| Lambda | $0.00 | $0.00 |
+| API Gateway | $0.00 | $0.00 |
+| Cognito | $0.00 | $0.00 |
+| S3 + CloudFront | $0.00 | $0.00 |
+| **Totale mensile** | **~$0.02** | **~$0.05–0.16** |
+| **Totale annuo** | **~$0.24** | **~$0.60–1.92** |
 
 ### Dal secondo anno in poi
 
-| Servizio | Prod | Dev (audit OFF) |
+| Servizio | Prod | Dev |
 |---|---|---|
-| DynamoDB | ~$0.02 | ~$0.00 |
+| DynamoDB | ~$0.02 | ~$0.01 |
 | Lambda | $0.00 | $0.00 |
 | API Gateway | ~$0.05 | ~$0.00 |
 | Cognito | $0.00 | $0.00 |
 | S3 + CloudFront | ~$0.01 | $0.00 |
-| **Totale mensile** | **~$0.08** | **~$0.00** |
-| **Totale annuo** | **~$1.00** | **~$0.00** |
+| **Totale mensile** | **~$0.08** | **~$0.01** |
+| **Totale annuo** | **~$1.00** | **~$0.12** |
 
 ---
 
@@ -145,34 +143,6 @@ Il modello PAY_PER_REQUEST garantisce che i costi crescano proporzionalmente all
 | 2.000 | ~88.000 | ~$1.40 | ~$1.60/mese |
 
 Anche a 2.000 dipendenti il costo mensile rimane sotto i **$2.00**, grazie alla natura serverless dell'architettura.
-
----
-
-## Ottimizzazioni
-
-### Audit disabilitato in dev
-
-Durante lo sviluppo ogni chiamata di test (login, timbratura, modifica utente, ecc.) genera una scrittura sulla tabella `AuditLog`. Con sessioni intensive di debug questo può produrre decine di migliaia di WRU/mese extra, superando il free tier.
-
-**Soluzione implementata:** la variabile d'ambiente `AUDIT_ENABLED` è impostata automaticamente da CDK in base all'ambiente di deploy:
-
-```typescript
-// backend-stack.ts — calcolato una volta sola e passato a tutte le Lambda
-const auditEnabled = props?.deployEnv ? 'false' : 'true';
-```
-
-| Ambiente | `AUDIT_ENABLED` | Scritture audit |
-|---|---|---|
-| Produzione (`./deploy.sh`) | `true` | abilitate |
-| Sviluppo (`./deploy.sh dev`) | `false` | soppresse |
-
-La funzione `writeAudit()` in `audit.ts` controlla il flag come prima istruzione:
-
-```typescript
-if (process.env.AUDIT_ENABLED === 'false') return;
-```
-
-Non serve nessuna modifica manuale: il comportamento corretto è garantito dal deploy script.
 
 ---
 

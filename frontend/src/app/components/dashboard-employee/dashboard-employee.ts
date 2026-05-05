@@ -5,6 +5,7 @@ import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/user-auth.service';
 import { ThemeService } from '../../services/theme.service';
 import { esportaExcel } from '../../utils/excel-export';
+import { Utente, Contratto, Timbratura, RichiestaManuale } from '../../models';
 
 @Component({
   selector: 'app-dashboard-employee',
@@ -15,28 +16,28 @@ import { esportaExcel } from '../../utils/excel-export';
 export class DashboardEmployee implements OnInit {
 
   // ─── Profilo ──────────────────────────────────────────────────────────────
-  profile: any = null;
+  profile: Utente | null = null;
   profileLoading = false;
 
   // ─── Contratto ────────────────────────────────────────────────────────────
-  contratti: any[]     = [];
+  contratti: Contratto[] = [];
   contrattiLoading     = false;
   dettagliUtenteOpen   = false;
   contrattoOpen        = false;
 
   // ─── Timbrature ───────────────────────────────────────────────────────────
-  timbrature: any[]  = [];
+  timbrature: Timbratura[] = [];
   timbratureLoading  = false;
   annoSelezionato    = new Date().getFullYear();
   meseSelezionato: number | null = new Date().getMonth() + 1;
   readonly mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
 
   // ─── Requests ─────────────────────────────────────────────────────────────
-  mieRequests: any[]  = [];
+  mieRequests: RichiestaManuale[] = [];
   requestsLoading     = false;
   showRequestModal    = false;
   requestModalError: string | null = null;
-  newRequest          = { data: '', tipo: 'entrata', ora: '', nota: '' };
+  newRequest          = { data: '', tipo: 'entrata' as 'entrata' | 'uscita', ora: '', nota: '' };
 
   showResetBiometriaModal = false;
   resetBiometriaNote      = '';
@@ -89,7 +90,7 @@ export class DashboardEmployee implements OnInit {
     });
   }
 
-  get contrattoAttivo(): any | null { return this.contratti[0] ?? null; }
+  get contrattoAttivo(): Contratto | undefined { return this.contratti[0]; }
 
   tipoContrattoLabel(tipo: string): string {
     return { indeterminato: 'Indeterminato', determinato: 'Determinato', part_time: 'Part-time', apprendistato: 'Apprendistato', stage: 'Stage' }[tipo] ?? tipo;
@@ -144,9 +145,9 @@ export class DashboardEmployee implements OnInit {
   // Più turni nello stesso giorno (es. pausa pranzo) diventano righe separate.
   // Un'entrata senza uscita genera un turno aperto (uscita/durata = null).
   get turni(): { data: string; entrata: string; uscita: string | null; durata: string | null; sede: string }[] {
-    const perGiorno = new Map<string, any[]>();
+    const perGiorno = new Map<string, Timbratura[]>();
     for (const t of this.timbrature) {
-      const giorno = t.timestamp?.slice(0, 10);
+      const giorno = t.data;
       if (!giorno) continue;
       if (!perGiorno.has(giorno)) perGiorno.set(giorno, []);
       perGiorno.get(giorno)!.push(t);
@@ -157,7 +158,7 @@ export class DashboardEmployee implements OnInit {
     const giorni = [...perGiorno.keys()].sort((a, b) => b.localeCompare(a)); // più recenti prima
     for (const giorno of giorni) {
       const eventi = perGiorno.get(giorno)!.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-      let entrata: any = null;
+      let entrata: Timbratura | null = null;
       for (const e of eventi) {
         if (e.tipo === 'entrata') {
           entrata = e;
@@ -192,10 +193,10 @@ export class DashboardEmployee implements OnInit {
 
   // L'ultima timbratura di oggi determina la presenza: entrata = presente, uscita = assente
   get presenteOra(): boolean | null {
-    const oggi = new Date().toISOString().slice(0, 10);
-    const timbratureOggi = this.timbrature.filter(t => t.timestamp?.startsWith(oggi));
+    const oggi = new Date().toLocaleString('sv', { timeZone: 'Europe/Rome' }).slice(0, 10);
+    const timbratureOggi = this.timbrature.filter(t => t.data === oggi);
     if (timbratureOggi.length === 0) return null;
-    const ultima = timbratureOggi.reduce((a: any, b: any) => a.timestamp > b.timestamp ? a : b);
+    const ultima = timbratureOggi.reduce((a, b) => a.timestamp > b.timestamp ? a : b);
     return ultima.tipo === 'entrata';
   }
 
@@ -213,10 +214,10 @@ export class DashboardEmployee implements OnInit {
     return this.formatDurata(Math.round(this.calcolaMinutiLavorati(this.timbrature) / giorni));
   }
 
-  private calcolaMinutiLavorati(timbrature: any[]): number {
-    const perGiorno = new Map<string, any[]>();
+  private calcolaMinutiLavorati(timbrature: Timbratura[]): number {
+    const perGiorno = new Map<string, Timbratura[]>();
     for (const t of timbrature) {
-      const giorno = t.timestamp?.slice(0, 10);
+      const giorno = t.data;
       if (!giorno) continue;
       if (!perGiorno.has(giorno)) perGiorno.set(giorno, []);
       perGiorno.get(giorno)!.push(t);
@@ -237,8 +238,8 @@ export class DashboardEmployee implements OnInit {
     return Math.round(totaleMinuti);
   }
 
-  private giorniConPresenza(timbrature: any[]): number {
-    return new Set(timbrature.map(t => t.timestamp?.slice(0, 10)).filter(Boolean)).size;
+  private giorniConPresenza(timbrature: Timbratura[]): number {
+    return new Set(timbrature.map(t => t.data).filter(Boolean)).size;
   }
 
 

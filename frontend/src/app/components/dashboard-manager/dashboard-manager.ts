@@ -6,6 +6,7 @@ import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/user-auth.service';
 import { ThemeService } from '../../services/theme.service';
 import { esportaExcel } from '../../utils/excel-export';
+import { Utente, Contratto, Timbratura, RichiestaManuale, Stazione, DashboardStazione } from '../../models';
 
 type Section = 'dashboard' | 'utenti' | 'stazioni' | 'richieste';
 
@@ -23,20 +24,20 @@ export class DashboardManager implements OnInit {
   isLoading   = false;
 
   // ─── Dashboard odierna ────────────────────────────────────────────────────
-  dashboardStazioni:    any[] = [];
+  dashboardStazioni:    DashboardStazione[] = [];
   dashboardLoading          = false;
   dashboardAggiornatoAlle   = '';
 
   // ─── Utenti ───────────────────────────────────────────────────────────────
-  utenti:       any[] = [];
-  selectedUser: any   = null;
+  utenti:       Utente[] = [];
+  selectedUser: Utente | null = null;
 
   showModal  = false;
   modalError: string | null = null;
-  newUser    = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', ruolo: 'employee' };
+  newUser    = { email: '', nome: '', cognome: '', birthdate: '', codice_fiscale: '', ruolo: 'employee' as 'employee' | 'manager' };
 
   showEditModal     = false;
-  editUser: any     = {};
+  editUser: { nome: string; cognome: string; birthdate: string; codice_fiscale: string } = { nome: '', cognome: '', birthdate: '', codice_fiscale: '' };
   showDeleteConfirm = false;
 
   resetPasswordLoading = false;
@@ -46,45 +47,45 @@ export class DashboardManager implements OnInit {
   resetBiometricsMessage: string | null = null;
 
   // ─── Richieste ────────────────────────────────────────────────────────────
-  richieste:          any[] = [];
+  richieste:          RichiestaManuale[] = [];
   richiesteLoading          = false;
 
   showApprovaModal              = false;
-  approvaModalRichiesta: any    = null;
-  approvaModalTimbrature: any[] = [];
+  approvaModalRichiesta: RichiestaManuale | null = null;
+  approvaModalTimbrature: Timbratura[]  = [];
   approvaModalLoading           = false;
   approvaModalError: string | null = null;
-  approvaModalAltreRichieste: any[] = [];
+  approvaModalAltreRichieste: RichiestaManuale[] = [];
 
-  showRifiutaModal          = false;
-  richiestaSelezionata: any = null;
+  showRifiutaModal               = false;
+  richiestaSelezionata: RichiestaManuale | null = null;
   motivoRifiuto             = '';
   rifiutaModalError: string | null = null;
 
   // ─── Stazioni ─────────────────────────────────────────────────────────────
-  stazioni:         any[] = [];
-  selectedStazione: any   = null;
+  stazioni:         Stazione[] = [];
+  selectedStazione: Stazione | null = null;
 
   showStazioneModal         = false;
   newStazione               = { descrizione: '', password: '' };
   stazioneModalError: string | null = null;
-  stazioneToDelete:   any   = null;
+  stazioneToDelete:   Stazione | null = null;
   showDeleteStazioneConfirm = false;
 
   // ─── Contratti ────────────────────────────────────────────────────────────
-  contratti:              any[] = [];
+  contratti:              Contratto[] = [];
   contrattiLoading              = false;
   dettagliUtenteOpen            = false;
   contrattoOpen                 = false;
   showContrattoModal            = false;
   contrattoModalError: string | null = null;
-  newContratto: any             = {};
+  newContratto: Partial<Contratto> = {};
   showEditContrattoModal        = false;
-  editContratto: any            = {};
+  editContratto: Partial<Contratto> = {};
   editContrattoId               = '';
 
   // ─── Timbrature ───────────────────────────────────────────────────────────
-  timbrature:    any[]  = [];
+  timbrature:    Timbratura[] = [];
   timbratureLoading     = false;
   annoSelezionato       = new Date().getFullYear();
   meseSelezionato: number | null = new Date().getMonth() + 1;
@@ -138,7 +139,7 @@ export class DashboardManager implements OnInit {
   get presentiOggiSet(): Set<string> {
     const presenti = new Set<string>();
     for (const stazione of this.dashboardStazioni) {
-      const ultimaPerUtente = new Map<string, any>();
+      const ultimaPerUtente = new Map<string, Timbratura>();
       for (const t of stazione.timbrature ?? []) {
         const attuale = ultimaPerUtente.get(t.userId);
         if (!attuale || t.timestamp > attuale.timestamp) ultimaPerUtente.set(t.userId, t);
@@ -162,7 +163,7 @@ export class DashboardManager implements OnInit {
     });
   }
 
-  selectUser(user: any) {
+  selectUser(user: { id: string }) {
     this.apiService.getUser(user.id).subscribe({
       next: (data) => {
         this.selectedUser = data;
@@ -200,6 +201,7 @@ export class DashboardManager implements OnInit {
   }
 
   openEditModal() {
+    if (!this.selectedUser) return;
     this.editUser = {
       nome:           this.selectedUser.given_name,
       cognome:        this.selectedUser.family_name,
@@ -210,17 +212,21 @@ export class DashboardManager implements OnInit {
   }
 
   saveEdit() {
-    this.apiService.modifyUser(this.selectedUser.id, this.editUser).subscribe({
-      next: () => { this.showEditModal = false; this.cdr.detectChanges(); this.selectUser({ id: this.selectedUser.id }); },
+    if (!this.selectedUser) return;
+    const id = this.selectedUser.id;
+    this.apiService.modifyUser(id, this.editUser).subscribe({
+      next: () => { this.showEditModal = false; this.cdr.detectChanges(); this.selectUser({ id }); },
       error: (err) => console.error('Errore modifica utente:', err),
     });
   }
 
   resetPasswordDipendente() {
-    if (!confirm(`Inviare una password temporanea via email a ${this.selectedUser?.email}?`)) return;
+    if (!this.selectedUser) return;
+    if (!confirm(`Inviare una password temporanea via email a ${this.selectedUser.email}?`)) return;
+    const id = this.selectedUser.id;
     this.resetPasswordLoading = true;
     this.resetPasswordMessage = null;
-    this.apiService.resetPassword(this.selectedUser.id).subscribe({
+    this.apiService.resetPassword(id).subscribe({
       next: () => {
         this.resetPasswordLoading = false;
         this.resetPasswordMessage = 'Password temporanea inviata via email.';
@@ -236,15 +242,17 @@ export class DashboardManager implements OnInit {
   }
 
   resetBiometricsDipendente() {
-    const nome = `${this.selectedUser?.given_name ?? ''} ${this.selectedUser?.family_name ?? ''}`.trim();
+    if (!this.selectedUser) return;
+    const nome = `${this.selectedUser.given_name} ${this.selectedUser.family_name}`.trim();
     if (!confirm(`Resettare la biometria di ${nome}? Le credenziali WebAuthn verranno cancellate definitivamente.`)) return;
+    const id = this.selectedUser.id;
     this.resetBiometricsLoading = true;
     this.resetBiometricsMessage = null;
-    this.apiService.resetBiometrics(this.selectedUser.id).subscribe({
+    this.apiService.resetBiometrics(id).subscribe({
       next: () => {
         this.resetBiometricsLoading = false;
         this.resetBiometricsMessage = 'Biometria resettata. Al prossimo login l\'utente dovrà registrare il dispositivo.';
-        this.selectUser({ id: this.selectedUser.id }); // ricarica per aggiornare il badge
+        this.selectUser({ id }); // ricarica per aggiornare il badge
         this.cdr.detectChanges();
         setTimeout(() => { this.resetBiometricsMessage = null; this.cdr.detectChanges(); }, 5000);
       },
@@ -257,6 +265,7 @@ export class DashboardManager implements OnInit {
   }
 
   confirmDelete() {
+    if (!this.selectedUser) return;
     this.apiService.deleteUser(this.selectedUser.id).subscribe({
       next: () => {
         this.showDeleteConfirm = false;
@@ -282,9 +291,10 @@ export class DashboardManager implements OnInit {
     });
   }
 
-  get contrattoAttivo(): any | null { return this.contratti[0] ?? null; }
+  get contrattoAttivo(): Contratto | undefined { return this.contratti[0]; }
 
   openNuovoContrattoModal() {
+    if (!this.selectedUser) return;
     this.newContratto        = { userId: this.selectedUser.id, tipoContratto: 'indeterminato', dataInizio: '' };
     this.contrattoModalError = null;
     this.showContrattoModal  = true;
@@ -292,10 +302,11 @@ export class DashboardManager implements OnInit {
 
   closeContrattoModal() { this.showContrattoModal = false; this.contrattoModalError = null; }
 
-  onTipoContrattoChange(c: any) {
+  onTipoContrattoChange(c: Partial<Contratto>) {
     if (c.tipoContratto === 'indeterminato') delete c.dataFine;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private validateContratto(c: any): string | null {
     if (!c.dataInizio) return 'La data di inizio è obbligatoria';
     if (c.tipoContratto !== 'indeterminato' && c.dataFine && c.dataFine < c.dataInizio)
@@ -331,16 +342,18 @@ export class DashboardManager implements OnInit {
   }
 
   salvaContratto() {
+    if (!this.selectedUser) return;
+    const userId = this.selectedUser.id;
     const err = this.validateContratto(this.newContratto);
     if (err) { this.contrattoModalError = err; return; }
     this.contrattoModalError = null;
     this.apiService.createContract(this.newContratto).subscribe({
-      next: () => { this.closeContrattoModal(); this.loadContratti(this.selectedUser.id); },
+      next: () => { this.closeContrattoModal(); this.loadContratti(userId); },
       error: (err) => { this.contrattoModalError = err.error?.message ?? 'Errore durante la creazione'; this.cdr.detectChanges(); },
     });
   }
 
-  openEditContrattoModal(c: any) {
+  openEditContrattoModal(c: Contratto) {
     this.editContrattoId     = c.contractId;
     this.editContratto       = { ...c };
     this.contrattoModalError = null;
@@ -348,19 +361,23 @@ export class DashboardManager implements OnInit {
   }
 
   salvaModificaContratto() {
+    if (!this.selectedUser) return;
+    const userId = this.selectedUser.id;
     const err = this.validateContratto(this.editContratto);
     if (err) { this.contrattoModalError = err; return; }
     this.contrattoModalError = null;
-    const { contractId, userId, createdAt, ...payload } = this.editContratto;
+    const { contractId, userId: _uid, createdAt, ...payload } = this.editContratto;
     this.apiService.updateContract(this.editContrattoId, payload).subscribe({
-      next: () => { this.showEditContrattoModal = false; this.loadContratti(this.selectedUser.id); },
+      next: () => { this.showEditContrattoModal = false; this.loadContratti(userId); },
       error: (err) => { this.contrattoModalError = err.error?.message ?? 'Errore durante la modifica'; this.cdr.detectChanges(); },
     });
   }
 
   eliminaContratto(contractId: string) {
+    if (!this.selectedUser) return;
+    const userId = this.selectedUser.id;
     this.apiService.deleteContract(contractId).subscribe({
-      next: () => this.loadContratti(this.selectedUser.id),
+      next: () => this.loadContratti(userId),
       error: (err) => console.error('Errore eliminazione contratto:', err),
     });
   }
@@ -381,7 +398,7 @@ export class DashboardManager implements OnInit {
     });
   }
 
-  approvaRichiesta(r: any) {
+  approvaRichiesta(r: RichiestaManuale) {
     this.approvaModalRichiesta       = r;
     this.approvaModalTimbrature      = [];
     this.approvaModalAltreRichieste  = [];
@@ -394,15 +411,15 @@ export class DashboardManager implements OnInit {
     // Altre richieste pendenti dello stesso utente per lo stesso giorno
     this.approvaModalAltreRichieste = this.richieste.filter(
       p => p.requestId !== r.requestId && p.userId === r.userId && p.data === r.data
-    ).sort((a: any, b: any) => a.ora.localeCompare(b.ora));
+    ).sort((a, b) => (a.ora ?? '').localeCompare(b.ora ?? ''));
 
     this.approvaModalLoading = true;
-    const mese = r.data.slice(0, 7);
+    const mese = r.data!.slice(0, 7);
     this.apiService.getTimbratureUtente(r.userId, mese).subscribe({
       next: (data) => {
         this.approvaModalTimbrature = data
-          .filter((t: any) => t.timestamp?.startsWith(r.data))
-          .sort((a: any, b: any) => a.timestamp.localeCompare(b.timestamp));
+          .filter(t => t.data === r.data)
+          .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
         this.approvaModalLoading = false;
         this.cdr.detectChanges();
       },
@@ -411,6 +428,7 @@ export class DashboardManager implements OnInit {
   }
 
   confermaApprova() {
+    if (!this.approvaModalRichiesta) return;
     this.approvaModalError = null;
     this.apiService.approvaRequest(this.approvaModalRichiesta.requestId).subscribe({
       next: () => { this.showApprovaModal = false; this.loadRichieste(); },
@@ -421,7 +439,7 @@ export class DashboardManager implements OnInit {
     });
   }
 
-  apriRifiutaModal(r: any) {
+  apriRifiutaModal(r: RichiestaManuale) {
     this.richiestaSelezionata = r;
     this.motivoRifiuto        = '';
     this.rifiutaModalError    = null;
@@ -429,6 +447,7 @@ export class DashboardManager implements OnInit {
   }
 
   confermaRifiuto() {
+    if (!this.richiestaSelezionata) return;
     if (!this.motivoRifiuto.trim()) { this.rifiutaModalError = 'Il motivo è obbligatorio'; return; }
     this.apiService.rifiutaRequest(this.richiestaSelezionata.requestId, this.motivoRifiuto).subscribe({
       next: () => { this.showRifiutaModal = false; this.loadRichieste(); },
@@ -456,7 +475,7 @@ export class DashboardManager implements OnInit {
     });
   }
 
-  selectStazione(stazione: any) {
+  selectStazione(stazione: Stazione) {
     this.apiService.getStazione(stazione.stationId).subscribe({
       next: (data) => { this.selectedStazione = data; this.cdr.detectChanges(); },
       error: (err)  => console.error('Errore caricamento stazione:', err),
@@ -481,13 +500,13 @@ export class DashboardManager implements OnInit {
     });
   }
 
-  richiediEliminaStazione(stazione: any) {
+  richiediEliminaStazione(stazione: Stazione) {
     this.stazioneToDelete          = stazione;
     this.showDeleteStazioneConfirm = true;
   }
 
   confirmDeleteStazione() {
-    const id = this.stazioneToDelete?.stationId ?? this.selectedStazione?.stationId;
+    const id = this.stazioneToDelete?.stationId ?? this.selectedStazione?.stationId ?? '';
     this.apiService.deleteStazione(id).subscribe({
       next: () => {
         this.showDeleteStazioneConfirm = false;
@@ -513,7 +532,7 @@ export class DashboardManager implements OnInit {
   }
 
   cambiaPeriodo() {
-    if (this.selectedUser?.id) this.loadTimbrature(this.selectedUser.id);
+    if (this.selectedUser?.id) this.loadTimbrature(this.selectedUser!.id);
   }
 
   annoPrecedente() { this.annoSelezionato--; this.cambiaPeriodo(); }
@@ -562,10 +581,10 @@ export class DashboardManager implements OnInit {
     return this.formatDurata(Math.round(this.calcolaMinutiLavorati(this.timbrature) / giorni));
   }
 
-  private calcolaMinutiLavorati(timbrature: any[]): number {
-    const perGiorno = new Map<string, any[]>();
+  private calcolaMinutiLavorati(timbrature: Timbratura[]): number {
+    const perGiorno = new Map<string, Timbratura[]>();
     for (const t of timbrature) {
-      const giorno = t.timestamp?.slice(0, 10);
+      const giorno = t.data;
       if (!giorno) continue;
       if (!perGiorno.has(giorno)) perGiorno.set(giorno, []);
       perGiorno.get(giorno)!.push(t);
@@ -586,14 +605,14 @@ export class DashboardManager implements OnInit {
     return Math.round(totaleMinuti);
   }
 
-  private giorniConPresenza(timbrature: any[]): number {
-    return new Set(timbrature.map(t => t.timestamp?.slice(0, 10)).filter(Boolean)).size;
+  private giorniConPresenza(timbrature: Timbratura[]): number {
+    return new Set(timbrature.map(t => t.data).filter(Boolean)).size;
   }
 
   get turni(): { data: string; entrata: string; uscita: string | null; durata: string | null; sede: string }[] {
-    const perGiorno = new Map<string, any[]>();
+    const perGiorno = new Map<string, Timbratura[]>();
     for (const t of this.timbrature) {
-      const giorno = t.timestamp?.slice(0, 10);
+      const giorno = t.data;
       if (!giorno) continue;
       if (!perGiorno.has(giorno)) perGiorno.set(giorno, []);
       perGiorno.get(giorno)!.push(t);
@@ -604,7 +623,7 @@ export class DashboardManager implements OnInit {
     const giorni = [...perGiorno.keys()].sort((a, b) => b.localeCompare(a));
     for (const giorno of giorni) {
       const eventi = perGiorno.get(giorno)!.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-      let entrata: any = null;
+      let entrata: Timbratura | null = null;
       for (const e of eventi) {
         if (e.tipo === 'entrata') {
           entrata = e;

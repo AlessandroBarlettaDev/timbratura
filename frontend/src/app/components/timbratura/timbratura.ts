@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/user-auth.service';
+import { AnteprimaResponse, ConfermaResponse } from '../../models';
 
 type Step = 'verifica' | 'biometrica' | 'conferma' | 'successo' | 'errore';
 
@@ -88,14 +89,14 @@ export class Timbratura implements OnInit {
     }
 
     try {
-      const authResult = await new Promise<any>((resolve, reject) => {
+      const authResult = await new Promise<{ options: any; sessionId: string }>((resolve, reject) => {
         this.api.startBiometricAuthentication().subscribe({ next: resolve, error: reject });
       });
 
       const { options, sessionId } = authResult;
       const assertion = await startAuthentication({ optionsJSON: options, useBrowserAutofill: false });
 
-      const result = await new Promise<any>((resolve, reject) => {
+      const result = await new Promise<AnteprimaResponse>((resolve, reject) => {
         this.api.anteprimaTimbratura({
           stationId: this.stationId,
           qrToken:   this.qrToken,
@@ -133,7 +134,7 @@ export class Timbratura implements OnInit {
     this.errore      = '';
 
     try {
-      const result = await new Promise<any>((resolve, reject) => {
+      const result = await new Promise<ConfermaResponse>((resolve, reject) => {
         this.api.confermaTimbratura(this.confirmToken, this.tipo).subscribe({ next: resolve, error: reject });
       });
       this.durataMinuti = result.durataMinuti;

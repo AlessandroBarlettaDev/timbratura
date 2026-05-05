@@ -1,5 +1,7 @@
 # Piano: Sistema Template Orari
 
+> ⚠️ **Funzionalità non ancora implementata.** Questo documento descrive un piano di sviluppo futuro. Nulla di quanto scritto qui esiste nel codice attuale.
+
 ## Context
 
 Il sistema di timbratura attuale non ha nessuna logica di orari previsti: `calcolaTipo()` usa solo la soglia fissa `TURNO_MAX_ORE=20`. I campi `oreSett`/`giorniSett` del contratto sono usati solo per l'export Excel. L'obiettivo è aggiungere template orari configurabili dal manager con cascata di priorità, rotazione giornaliera e avviso anomalie visibile solo al manager.

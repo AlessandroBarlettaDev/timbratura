@@ -65,6 +65,8 @@ export class DynamoDbConfig extends Construct {
 
       billingMode:  dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      // TTL sulle pending-entry (pending#<token>) — scadono automaticamente dopo 5 minuti
+      timeToLiveAttribute: 'expiresAt',
     });
 
     // GSI su data (YYYY-MM-DD) — il manager usa questo indice per leggere tutte
