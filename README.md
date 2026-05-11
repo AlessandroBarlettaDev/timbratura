@@ -30,6 +30,31 @@ Sistema di gestione presenze con autenticazione biometrica (WebAuthn/FIDO2), svi
 
 ---
 
+## Profili demo
+
+Utenti disponibili nell'ambiente di produzione per test e screenshot.
+
+**Password comune:** `Demo1234!`
+**URL app:** https://d2csjqqicya19l.cloudfront.net
+
+| Nome | Email | Ruolo | Note |
+|---|---|---|---|
+| Marco Bianchi | marco.bianchi@timbratura.it | Manager | Accesso completo alla dashboard manager |
+| Mario Rossi | mario.rossi@timbratura.it | Dipendente | Full-time, contratto indeterminato — ha una richiesta manuale pendente |
+| Laura Esposito | laura.esposito@timbratura.it | Dipendente | Full-time senior — ha una richiesta manuale approvata |
+| Giuseppe Ferrari | giuseppe.ferrari@timbratura.it | Dipendente | Part-time, contratto determinato (scade 31/08/2026) |
+
+> ⚠️ La registrazione biometrica (`/first-access`) deve essere completata manualmente per ciascun dipendente prima di poter timbrare. Il manager (Marco Bianchi) non richiede biometria.
+
+**Stazioni disponibili:**
+
+| Nome | Codice | Password |
+|---|---|---|
+| Ingresso Principale | STZ-ING001 | Demo1234! |
+| Sala Server | STZ-SRV002 | Demo1234! |
+
+---
+
 ## 1. Panoramica
 
 **Timbratura** è un sistema cloud per la gestione delle presenze aziendali. I dipendenti timbrano entrata e uscita scansionando un QR code esposto dalla stazione aziendale e autenticandosi con il proprio dispositivo biometrico (impronta digitale, Face ID, Windows Hello) — senza inserire credenziali.
@@ -52,36 +77,53 @@ Sistema di gestione presenze con autenticazione biometrica (WebAuthn/FIDO2), svi
 ## 2. Architettura
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                            AWS Cloud                             │
-│                                                                  │
-│  ┌──────────┐    ┌───────────────┐    ┌─────────────┐            │
-│  │CloudFront│───▶│  S3 (hosting) │    │   Cognito   │            │
-│  │  (CDN)   │    │  Angular SPA  │    │  (auth)     │            │
-│  └──────────┘    └───────────────┘    └─────────────┘            │
-│        │                                     │                   │
-│        ▼                                     ▼                   │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                      API Gateway (REST)                       │  │
-│  │  /users  /biometric  /timbrature  /stazioni  /requests        │  │
-│  │  /contracts                                                   │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│        │                                                            │
-│        ▼                                                            │
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌───────┐ ┌──────────┐        │
-│  │Users │ │Biom. │ │Timbr.│ │Staz. │ │Reques.│ │Contracts │        │
-│  │Lmbd. │ │Lmbd. │ │Lmbd. │ │Lmbd. │ │ Lmbd. │ │  Lmbd.  │        │
-│  └──────┘ └──────┘ └──────┘ └──────┘ └───────┘ └──────────┘        │
-│       │       │        │        │         │           │            │
-│       └───────┴────────┴────────┴─────────┴───────────┘            │
-│                                   │                               │
-│                                   ▼                               │
-│              ┌────────────────────────────────────────┐           │
-│              │               DynamoDB                 │           │
-│              │  WebAuthn │ Timbrature │ Stazioni       │           │
-│              │  Requests │ Contracts                  │           │
-│              └────────────────────────────────────────┘           │
-└──────────────────────────────────────────────────────────────────┘
+┌─ CLIENT ─────────────────────────────────────────────────────────────────────┐
+│                                                                               │
+│   Browser dipendente                  Tablet / PC stazione                    │
+│   (Angular SPA)                       (Angular SPA — schermata QR)           │
+│                                                                               │
+└──────────┬─────────────────────────────────────────┬──────────────────────────┘
+           │ HTTPS                                   │ HTTPS
+           ▼                                         │
+┌─ AWS Cloud ──────────────────────────────────────────────────────────────────┐
+│                                                    │                          │
+│  ┌─────────────────────────┐                       ▼                          │
+│  │  CloudFront (CDN)       │   ┌─────────────────────────────────────────┐    │
+│  │  └─▶ S3 — Angular SPA   │   │           API Gateway (REST)            │    │
+│  └─────────────────────────┘   │  /users /biometric /timbrature          │    │
+│                                │  /stazioni /requests /contracts          │    │
+│                                │  ┌─────────────────┐ ┌────────────────┐ │    │
+│                                │  │  Auth. Cognito  │ │  Auth. JWT     │ │    │
+│                                │  │  manager/emp.   │ │  custom (24h)  │ │    │
+│                                │  │  + self         │ │  /stazioni/me/ │ │    │
+│                                │  └────────┬────────┘ └───────┬────────┘ │    │
+│                                └───────────┼──────────────────┼──────────┘    │
+│                                            │                  │               │
+│              ┌─────────────────────────────┴──────────────────┴─────┐         │
+│              ▼          ▼           ▼           ▼         ▼         ▼         │
+│        ┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐      │
+│        │ Users │  │ Biom. │  │Timbr. │  │ Staz. │  │ Reqs. │  │Contr. │      │
+│        └───┬───┘  └───┬───┘  └───┬───┘  └───┬───┘  └───┬───┘  └───┬───┘      │
+│        (Cognito)      │          │       ┌───┘       ┌──┘          │          │
+│                       │          ◀───────┘           │             │          │
+│                       │          ◀────────────────────┘             │          │
+│                       ▼          ▼           ▼                      ▼          │
+│                  ┌────────┐ ┌─────────┐ ┌─────────┐           ┌─────────┐     │
+│                  │WebAuthn│ │Timbratur│ │ Stazioni│           │Requests │     │
+│                  │Credent.│ │         │ │         │           │         │     │
+│                  └────────┘ └─────────┘ └─────────┘           └────┬────┘     │
+│                                                                     ▼          │
+│                                                                ┌─────────┐     │
+│                                                                │Contracts│     │
+│                                                                └─────────┘     │
+│                                                                                │
+│  ┌──────────────────────────────┐                                              │
+│  │      Cognito User Pool       │◀── verifica JWT ad ogni richiesta protetta   │
+│  │  • Gruppi: manager/employee  │                                              │
+│  │  • Auth: SRP, WebAuthn       │                                              │
+│  │  • Attributi custom          │                                              │
+│  └──────────────────────────────┘                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 | Servizio | Ruolo |

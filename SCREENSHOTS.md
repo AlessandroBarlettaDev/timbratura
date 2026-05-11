@@ -20,17 +20,17 @@ Walkthrough visivo delle principali schermate, organizzato per ruolo e flusso.
 
 ## Dipendente
 
-### Dashboard e profilo
+### Pagina dipendente
 
-| Dashboard | Dettagli utente — cambio password | Dettagli utente — reset biometrica |
-|:-:|:-:|:-:|
-| ![Dashboard dipendente](screenshot/5_dashboard_dipendente.png) | ![Cambio password](screenshot/6_dettagli_utente_cambio_password.png) | ![Reset biometrica](screenshot/7_dettagli_utente_reset_biometrica.png) |
+| Dettagli utente | Contratto | Le mie richieste | Storico timbrature |
+|:-:|:-:|:-:|:-:|
+| ![Dettagli utente](screenshot/6_dettagli_utente_cambio_password.png) | ![Contratto](screenshot/18_contratto_dipendente.png) | ![Le mie richieste](screenshot/19_richieste_dipendente.png) | ![Storico timbrature](screenshot/20_storico_timbrature.png) |
 
 ### Flusso di timbratura
 
-| Scansione QR — Anteprima entrata | Conferma timbratura | Notifica successo |
-|:-:|:-:|:-:|
-| ![Form timbratura entrata](screenshot/9_form_timbratura_entrata.png) | ![Form nuova richiesta](screenshot/8_form_nuova_richiesta_timbratura.png) | ![Notifica ok](screenshot/10_notifica_timbratura_ok.png) |
+| Anteprima entrata | Anteprima uscita | Conferma identità | Notifica successo |
+|:-:|:-:|:-:|:-:|
+| ![Form timbratura entrata](screenshot/9_form_timbratura_entrata.png) | ![Form timbratura uscita](screenshot/21_form_timbratura_uscita.png) | ![Conferma identità](screenshot/8_form_nuova_richiesta_timbratura.png) | ![Notifica ok](screenshot/10_notifica_timbratura_ok.png) |
 
 ---
 
